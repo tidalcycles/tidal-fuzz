@@ -1,0 +1,18 @@
+module Sound.Tidal.Walk where
+
+import Sound.Tidal.Types
+
+import System.Random
+
+
+
+walk :: IO String
+walk = do g <- getStdGen
+          let rs = randoms g
+          
+
+step :: [Float] -> Type -> String
+step s t = pick $ words "every sometimes jux"
+
+pick :: Float -> [a] -> a
+pick f xs = xs !! (floor $ f * (fromIntegral $ length xs))
