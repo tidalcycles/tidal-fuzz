@@ -1,8 +1,9 @@
 module Sound.Tidal.Types where
 
-import Data.List (intersectBy)
+import Data.List (intersectBy, nub)
 import Data.Maybe (fromMaybe, catMaybes)
 import System.Random
+import Control.Monad
 
 data Type = 
   F Type Type
@@ -72,41 +73,42 @@ data Construct = Construct {context :: [String],
 
 functions :: [(String, Sig)]
 functions = 
-  [("+", numOp),
-   ("-", numOp),
-   ("/", floatOp),
-   ("*", numOp),
-   ("#", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
-   ("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
-   ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+  [--("+", numOp),
+   --("-", numOp),
+   --("/", floatOp),
+   --("*", numOp),
+   --("#", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
+   --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+   --("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
    -- ("floor", Sig [] $ F Float Int),
-   ("sine", floatPat),
-   ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
-   ("fmap", mapper),
-   ("<$>", mapper),
-   ("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
+   --("sine", floatPat),
+   --("run", Sig [] $ F (Pattern Int) (Pattern Int)),
+   --("fmap", mapper),
+   --("<$>", mapper),
+   --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
    ("sound", stringToOsc),
    ("vowel", stringToOsc),
    ("shape", floatToOsc),
    ("speed", floatToOsc),
    ("delay", floatToOsc),
    ("pan", floatToOsc),
+   ("every", Sig [WildCard] $ F (Pattern Int) 
+             (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
+                (F (Pattern $ Param 0) (Pattern $ Param 0))
+             )
+   ),
+   ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+   {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("silence", Sig [] $ Pattern WildCard),
    ("density", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("slow", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc))),
    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
    ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("every", Sig [WildCard] $ F (Pattern Int) 
-             (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
-                (F (Pattern $ Param 0) (Pattern $ Param 0))
-             )
-   ),
    ("chunk", Sig [WildCard] $ F (Pattern Int) 
              (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
@@ -124,14 +126,22 @@ functions =
                        )
    ),
    ("wedge", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)))),
-   ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
    ("brak", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
    ("pick", Sig [] $ F String (F Int String)),
    ("]", Sig [OneOf [String,Int,Float]] (List (Param 0))),
    ("[", Sig [OneOf [String,Int,Float]] (F (List (Param 0)) (Pattern (Param 0))))
+-}
+    ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
+    ("1", Sig [] $ Pattern Int),
+    ("2", Sig [] $ Pattern Int),
+    ("3 4 5", Sig [] $ Pattern Int),
+    ("1", Sig [] $ Pattern Float),
+    ("2", Sig [] $ Pattern Float),
+    ("3 4 5", Sig [] $ Pattern Float),
+    ("\"bd sn\"", Sig [] $ Pattern String)
   ]
   where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
-        floatOp = Sig [] $ F Float (F Float Float)
+        floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
         floatPat = Sig [] $ Pattern Float
         mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
         stringToOsc = Sig [] $ F (Pattern String) (Pattern Osc)
@@ -142,9 +152,13 @@ showFunctions :: String
 showFunctions = concatMap f functions
   where f (s, t) = s ++ " :: " ++ show t ++ "\n"
 
+showNames :: String
+showNames = concatMap f functions
+  where f (s, t) = s ++ ", "
+
 stringToType :: String -> Type
 stringToType [] = String
-stringToType s = OneOf [t, Pattern t]
+stringToType s = Pattern t -- TODO OneOf [t, Pattern t]
   where t = scanType Int s
         scanType t [] = t
         scanType Int ('.':[]) = String
@@ -189,49 +203,55 @@ fits (Sig _ Osc) (Sig _ Osc) = True
 
 fits _ _ = False
 
+
 -- Will either return the target, or a function that (ultimately)
 -- returns the target, or nothing
-fitsTo :: Sig -> Sig -> Maybe Sig
+canAs :: Sig -> Sig -> Maybe Sig
 
-fitsTo (Sig pA (F a a')) (Sig pB (F b b')) = 
+-- can function produce target function (and how)?
+canAs (Sig pA (F a a')) (Sig pB (F b b')) = 
   do -- fit argument
-     (Sig _ arg) <- (fitsTo (Sig pA a) (Sig pB b))
+     (Sig _ arg) <- (canAs (Sig pA a) (Sig pB b))
      -- fit result
-     (Sig _ result) <- fitsTo (Sig pA a') (Sig pB b')
+     (Sig _ result) <- canAs (Sig pA a') (Sig pB b')
      return $ Sig pA (F arg result)
 
-fitsTo target@(Sig pA a) (Sig pB (F b b')) = 
-  do (Sig pX x) <- fitsTo target (Sig pB b')
+-- can function produce target value (and how)?
+canAs target@(Sig pA a) (Sig pB (F b b')) = 
+  do (Sig pX x) <- canAs target (Sig pB b')
      return $ Sig pX $ F b x 
 
-fitsTo target (Sig _ WildCard) = Just target
+-- A wildcard can produce anything
+canAs target (Sig _ WildCard) = Just target
 
 -- Check target is a subset
-fitsTo target@(Sig pA (OneOf as)) (Sig pB (OneOf bs))
+canAs target@(Sig pA (OneOf as)) (Sig pB (OneOf bs))
   | isSubset = Just target
   | otherwise = Nothing
   where isSubset = length (intersectBy (\a b -> fits (Sig pA a) (Sig pB b)) as bs) == length as
 
-fitsTo target (Sig pB (OneOf bs)) | isIn = Just target
-                                  | otherwise = Nothing
+-- Check target is in the 'OneOf'
+canAs target (Sig pB (OneOf bs)) | isIn = Just target
+                                 | otherwise = Nothing
   where isIn = or $ map (\x -> fits target (Sig pB x)) bs
 
-fitsTo (Sig pA (Pattern a)) (Sig pB (Pattern b)) =
-  do (Sig ps t) <- fitsTo (Sig pA a) (Sig pB b)
+-- 
+canAs (Sig pA (Pattern a)) (Sig pB (Pattern b)) =
+  do (Sig ps t) <- canAs (Sig pA a) (Sig pB b)
      return $ Sig ps (Pattern t)
 
-fitsTo (Sig pA (List a)) (Sig pB (List b)) =
-  do (Sig ps t) <- fitsTo (Sig pA a) (Sig pB b)
+canAs (Sig pA (List a)) (Sig pB (List b)) =
+  do (Sig ps t) <- canAs (Sig pA a) (Sig pB b)
      return $ Sig ps (List t)
 
-fitsTo target@(Sig pA a) (Sig pB (Param b))
+canAs target@(Sig pA a) (Sig pB (Param b))
   | matches = Just $ Sig (setAt pB b a) (Param b)
   | otherwise = Nothing
   where matches = fits (Sig pA a) (Sig pB (Param b))
 
-fitsTo target@(Sig _ a) (Sig _ b) | a == b = Just target
+canAs target@(Sig _ a) (Sig _ b) | a == b = Just target
 
-fitsTo _ _ = Nothing
+canAs _ _ = Nothing
 
 setAt :: [a] -> Int -> a -> [a]
 setAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
@@ -256,27 +276,34 @@ fitsOutput target t | fits t target = True
 -}
 
 walk target = do r <- randomIO
+                 when (null $ options target) $ error ("No options meet " ++ show target)
                  let (n,s) = pick r (options target)
                  putStrLn $ n ++ " :: " ++ show s
                  nxt s
 
-nxt (Sig ps (F arg t)) = do r <- randomIO
-                            let (n,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
-                            putStrLn $ n ++ " :: " ++ show s
-                            nxt $ s
-                            nxt $ Sig ps' t
+nxt (Sig ps (F arg result)) =
+  do r <- randomIO
+     let (n,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
+     putStrLn $ n ++ " :: " ++ show s
+     nxt $ s
+     nxt $ Sig ps' result
 nxt _ = return ()
-                           
-                           
+
+simplifyType :: Type -> Type
+simplifyType x@(OneOf []) = x -- shouldn't happen..
+simplifyType (OneOf (x:[])) = x
+simplifyType (OneOf xs) = OneOf $ nub xs
+simplifyType x = x
 
 pick :: Float -> [a] -> a
+pick f [] = error "no options to pick from"
 pick f xs = xs !! (floor (fromIntegral (length xs) * f))
 
 options :: Sig -> [(String, Sig)]
 options target = possible
   where 
     possible = catMaybes $ map look functions
-    look (n,s) = do s' <- fitsTo target s
+    look (n,s) = do s' <- canAs target s
                     return $ (n,s')
 
 showopts :: Sig -> String
