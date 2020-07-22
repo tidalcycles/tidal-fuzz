@@ -245,13 +245,45 @@ canAs (Sig pA (List a)) (Sig pB (List b)) =
      return $ Sig ps (List t)
 
 canAs target@(Sig pA a) (Sig pB (Param b))
-  | matches = Just $ Sig (setAt pB b a) (Param b)
+  | matches = Just $ Sig (setAt pB b $ resolveParam pA a) (Param b)
   | otherwise = Nothing
   where matches = fits (Sig pA a) (Sig pB (Param b))
 
 canAs target@(Sig _ a) (Sig _ b) | a == b = Just target
 
 canAs _ _ = Nothing
+
+resolveParam :: [Type] -> Type -> Type
+resolveParam ps (Param n) = ps !! n
+resolveParam ps (F a b) = F (resolveParam ps a) (resolveParam ps b)
+resolveParam ps (OneOf ts) = OneOf $ map (resolveParam ps) ts
+resolveParam ps (Pattern t) = Pattern $ resolveParam ps t
+resolveParam ps (List t) = List $ resolveParam ps t
+resolveParam _ t = t
+
+{-
+normaliseType :: Type -> Type
+normaliseType x@(OneOf []) = x -- shouldn't happen..
+normaliseType (OneOf (x:[])) = x
+normaliseType (OneOf xs) = OneOf $ nub xs
+normaliseType x = x
+
+setParam :: Int -> Type -> Type -> Type
+setParam n to (F a b) = F (setParam n to a) (setParam n to b)
+setParam n to (OneOf ts) = OneOf $ map (setParam n to) ts
+setParam n to (Pattern t) = Pattern $ setParam n to t)
+setParam n to from@(Param n') | n == n' =  to
+                              | otherwise = from
+setParam n to (List t) = List $ setParam n to t
+setParam n to (SimpleList t) = List $ setParam n to t
+setParam n _ from = from
+
+normaliseSig :: Sig -> Sig
+normaliseSig (Sig ps t) = foldr f t eps
+  where eps = zip ([0 ..], map normaliseType ps)
+        f t (n,OneOf _)) = t
+        f t (n,Wildcard) = t
+-}
 
 setAt :: [a] -> Int -> a -> [a]
 setAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
