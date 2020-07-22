@@ -81,8 +81,8 @@ functions =
    --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
    --("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
    -- ("floor", Sig [] $ F Float Int),
-   --("sine", floatPat),
-   --("run", Sig [] $ F (Pattern Int) (Pattern Int)),
+    ("sine", floatPat),
+   ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
    --("fmap", mapper),
    --("<$>", mapper),
    --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
@@ -94,10 +94,10 @@ functions =
    ("pan", floatToOsc),
    ("every", Sig [WildCard] $ F (Pattern Int) 
              (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
-                (F (Pattern $ Param 0) (Pattern $ Param 0))
+                (Pattern $ Param 0)
              )
    ),
-   ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+   -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
@@ -138,6 +138,12 @@ functions =
     ("1", Sig [] $ Pattern Float),
     ("2", Sig [] $ Pattern Float),
     ("3 4 5", Sig [] $ Pattern Float),
+    ("1", Sig [] $ Float),
+    ("2", Sig [] $ Float),
+    ("3 4 5", Sig [] $ Float),
+    ("1", Sig [] $ Float),
+    ("2", Sig [] $ Float),
+    ("3 4 5", Sig [] $ Float),
     ("\"bd sn\"", Sig [] $ Pattern String)
   ]
   where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
@@ -244,10 +250,30 @@ canAs (Sig pA (List a)) (Sig pB (List b)) =
   do (Sig ps t) <- canAs (Sig pA a) (Sig pB b)
      return $ Sig ps (List t)
 
-canAs target@(Sig pA a) (Sig pB (Param b))
+{-
+-- Check target matches the parameter
+canAs target@(Sig pA a) from@(Sig pB (Param b))
+  = canAs target (Sig (setAt pB b $ resolveParam pA a))
+-}
+
+canAs target@(Sig pA a) from@(Sig pB (Param b))
+  -- If they match, resolve the parameter to the target
   | matches = Just $ Sig (setAt pB b $ resolveParam pA a) (Param b)
   | otherwise = Nothing
-  where matches = fits (Sig pA a) (Sig pB (Param b))
+  where matches = fits target from
+
+canAs target@(Sig pA (Param a)) from@(Sig pB b)
+  -- If they match, resolve the parameter to the 'from'
+  | matches = Just $ Sig (setAt pA a $ resolveParam pB b) (Param a)
+  | otherwise = Nothing
+  where matches = fits target from
+
+{-
+canAs target@(Sig pA (Param a)) (Sig pB b)
+  | matches = Just $ Sig (setAt pB b $ resolveParam pA a) (Param b)
+  | otherwise = Nothing
+  where matches = fits (Sig pA (Param a)) (Sig pB b)
+-}
 
 canAs target@(Sig _ a) (Sig _ b) | a == b = Just target
 
@@ -313,12 +339,30 @@ walk target = do r <- randomIO
                  putStrLn $ n ++ " :: " ++ show s
                  nxt s
 
+{-
+pan :: (p [f] -> p [osc])
+fast :: [f] => (p [f] -> (p [param#0] -> p [param#0]))
+2 :: [f] => p [f]
+
+rev :: [osc] => (p [param#0] -> p [param#0])
+
+options $ Sig [] (Pattern $ Osc)
+options $ Sig [Osc] (Pattern $ Param 0)
+
+-}
+
+-- We've matched a function
 nxt (Sig ps (F arg result)) =
   do r <- randomIO
+     -- Choose from the possible options, with types resolved to match the context
      let (n,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
+     -- Print the name and type of the option we've picked for the argument
      putStrLn $ n ++ " :: " ++ show s
+     -- Recurse with the argument, in case it's a function
      nxt $ s
-     nxt $ Sig ps' result
+     -- Recurse with the result of the function, in case it's also a function (i.e. we have a multi-argument function)
+     -- TODO - maybe the ps will now be wrong?
+     nxt $ Sig ps result
 nxt _ = return ()
 
 simplifyType :: Type -> Type
