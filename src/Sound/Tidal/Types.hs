@@ -97,6 +97,7 @@ functions =
                 (Pattern $ Param 0)
              )
    ),
+   ("instantgabba", Sig [] $ Pattern Osc),
    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
@@ -333,11 +334,15 @@ fitsOutput target t | fits t target = True
  4/ Recurse to missing arguments
 -}
 
+
+
+
+walk :: Sig -> IO ()
 walk target = do r <- randomIO
                  when (null $ options target) $ error ("No options meet " ++ show target)
                  let (n,s) = pick r (options target)
                  putStrLn $ n ++ " :: " ++ show s
-                 nxt s
+                 walkFunction s
 
 {-
 pan :: (p [f] -> p [osc])
@@ -351,19 +356,25 @@ options $ Sig [Osc] (Pattern $ Param 0)
 
 -}
 
+{-
+weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO ()
+weightedWalkFunction ngramfunc history target = ..
+-}
+
+walkFunction :: Sig -> IO ()
 -- We've matched a function
-nxt (Sig ps (F arg result)) =
+walkFunction (Sig ps (F arg result)) =
   do r <- randomIO
      -- Choose from the possible options, with types resolved to match the context
      let (n,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
      -- Print the name and type of the option we've picked for the argument
      putStrLn $ n ++ " :: " ++ show s
      -- Recurse with the argument, in case it's a function
-     nxt $ s
+     walkFunction $ s
      -- Recurse with the result of the function, in case it's also a function (i.e. we have a multi-argument function)
      -- TODO - maybe the ps will now be wrong?
-     nxt $ Sig ps result
-nxt _ = return ()
+     walkFunction $ Sig ps result
+walkFunction _ = return ()
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..
