@@ -87,17 +87,17 @@ functions =
    --("<$>", mapper),
    --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
    ("sound", stringToOsc),
-   ("vowel", stringToOsc),
-   ("shape", floatToOsc),
-   ("speed", floatToOsc),
-   ("delay", floatToOsc),
-   ("pan", floatToOsc),
+   -- ("vowel", stringToOsc),
+   -- ("shape", floatToOsc),
+   -- ("speed", floatToOsc),
+   -- ("delay", floatToOsc),
+   -- ("pan", floatToOsc),
    ("every", Sig [WildCard] $ F (Pattern Int) 
              (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
-                (Pattern $ Param 0)
+                (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
-   ("instantgabba", Sig [] $ Pattern Osc),
+   -- ("instantgabba", Sig [] $ Pattern Osc),
    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
@@ -135,16 +135,16 @@ functions =
     ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
     ("1", Sig [] $ Pattern Int),
     ("2", Sig [] $ Pattern Int),
-    ("3 4 5", Sig [] $ Pattern Int),
+    ("\"3 4 5\"", Sig [] $ Pattern Int),
     ("1", Sig [] $ Pattern Float),
     ("2", Sig [] $ Pattern Float),
-    ("3 4 5", Sig [] $ Pattern Float),
+    ("\"3 4 5\"", Sig [] $ Pattern Float),
     ("1", Sig [] $ Float),
     ("2", Sig [] $ Float),
-    ("3 4 5", Sig [] $ Float),
+    ("\"3 4 5\"", Sig [] $ Float),
     ("1", Sig [] $ Float),
     ("2", Sig [] $ Float),
-    ("3 4 5", Sig [] $ Float),
+    ("\"3 4 5\"", Sig [] $ Float),
     ("\"bd sn\"", Sig [] $ Pattern String)
   ]
   where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
@@ -269,13 +269,6 @@ canAs target@(Sig pA (Param a)) from@(Sig pB b)
   | otherwise = Nothing
   where matches = fits target from
 
-{-
-canAs target@(Sig pA (Param a)) (Sig pB b)
-  | matches = Just $ Sig (setAt pB b $ resolveParam pA a) (Param b)
-  | otherwise = Nothing
-  where matches = fits (Sig pA (Param a)) (Sig pB b)
--}
-
 canAs target@(Sig _ a) (Sig _ b) | a == b = Just target
 
 canAs _ _ = Nothing
@@ -287,30 +280,6 @@ resolveParam ps (OneOf ts) = OneOf $ map (resolveParam ps) ts
 resolveParam ps (Pattern t) = Pattern $ resolveParam ps t
 resolveParam ps (List t) = List $ resolveParam ps t
 resolveParam _ t = t
-
-{-
-normaliseType :: Type -> Type
-normaliseType x@(OneOf []) = x -- shouldn't happen..
-normaliseType (OneOf (x:[])) = x
-normaliseType (OneOf xs) = OneOf $ nub xs
-normaliseType x = x
-
-setParam :: Int -> Type -> Type -> Type
-setParam n to (F a b) = F (setParam n to a) (setParam n to b)
-setParam n to (OneOf ts) = OneOf $ map (setParam n to) ts
-setParam n to (Pattern t) = Pattern $ setParam n to t)
-setParam n to from@(Param n') | n == n' =  to
-                              | otherwise = from
-setParam n to (List t) = List $ setParam n to t
-setParam n to (SimpleList t) = List $ setParam n to t
-setParam n _ from = from
-
-normaliseSig :: Sig -> Sig
-normaliseSig (Sig ps t) = foldr f t eps
-  where eps = zip ([0 ..], map normaliseType ps)
-        f t (n,OneOf _)) = t
-        f t (n,Wildcard) = t
--}
 
 setAt :: [a] -> Int -> a -> [a]
 setAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
@@ -334,47 +303,43 @@ fitsOutput target t | fits t target = True
  4/ Recurse to missing arguments
 -}
 
-
-
-
+-- Picks the first value
 walk :: Sig -> IO ()
 walk target = do r <- randomIO
                  when (null $ options target) $ error ("No options meet " ++ show target)
-                 let (n,s) = pick r (options target)
-                 putStrLn $ n ++ " :: " ++ show s
-                 walkFunction s
-
-{-
-pan :: (p [f] -> p [osc])
-fast :: [f] => (p [f] -> (p [param#0] -> p [param#0]))
-2 :: [f] => p [f]
-
-rev :: [osc] => (p [param#0] -> p [param#0])
-
-options $ Sig [] (Pattern $ Osc)
-options $ Sig [Osc] (Pattern $ Param 0)
-
--}
+                 let (name, s@(Sig _ t)) = pick r (options target)
+                     history = [name]
+                 -- putStrLn $ n ++ " :: " ++ show s
+                 putStrLn $ name -- ++ " ("
+                 walkFunction history 0 $ s
+                 -- putStrLn $ ")"
 
 {-
 weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO ()
 weightedWalkFunction ngramfunc history target = ..
 -}
 
-walkFunction :: Sig -> IO ()
+walkFunction :: [String] -> Int -> Sig -> IO ()
 -- We've matched a function
-walkFunction (Sig ps (F arg result)) =
+walkFunction history depth (Sig ps t@(F arg result)) =
   do r <- randomIO
      -- Choose from the possible options, with types resolved to match the context
-     let (n,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
+     let (name,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
      -- Print the name and type of the option we've picked for the argument
-     putStrLn $ n ++ " :: " ++ show s
+     -- putStrLn $ n ++ " :: " ++ show s
      -- Recurse with the argument, in case it's a function
-     walkFunction $ s
+     putStrLn $ indent ++ name -- ++ " [arity: " ++ show (arity t') ++ "]"
+     when (arity arg < arity t') $ do
+       -- putStrLn $ indent ++ "("
+       walkFunction (name:history) (depth+1) $ s
+       -- putStrLn $ indent ++ ") "
      -- Recurse with the result of the function, in case it's also a function (i.e. we have a multi-argument function)
      -- TODO - maybe the ps will now be wrong?
-     walkFunction $ Sig ps result
-walkFunction _ = return ()
+     when (isFunction result) $ do -- putStrLn $ indent ++ "("
+                                   walkFunction (name:history) depth $ Sig ps result
+                                   -- putStrLn $ indent ++ ")"
+  where indent = replicate depth ' '
+walkFunction _ _ _ = return ()
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..
@@ -400,3 +365,6 @@ isFunction :: Type -> Bool
 isFunction (F _ _) = True
 isFunction _ = False
 
+arity :: Type -> Int
+arity (F _ b) = (arity b) + 1
+arity _ = 0
