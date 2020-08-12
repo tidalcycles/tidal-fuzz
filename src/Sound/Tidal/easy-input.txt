@@ -1,0 +1,4 @@
+jux (rev) $ sound "bd sn"
+
+slow 4 $ n "g3"
+# sound "supergong"
