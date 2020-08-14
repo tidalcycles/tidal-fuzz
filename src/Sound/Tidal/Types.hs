@@ -115,12 +115,6 @@ functions =
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
-   ("jux", Sig
-           []
-           (F (F (Pattern Osc) (Pattern Osc))
-            (F (Pattern Osc) (Pattern Osc))
-           )
-   ),
    ("superimpose", Sig []
                        (F (F (Pattern Osc) (Pattern Osc))
                         (F (Pattern Osc) (Pattern Osc))
@@ -132,6 +126,12 @@ functions =
    ("]", Sig [OneOf [String,Int,Float]] (List (Param 0))),
    ("[", Sig [OneOf [String,Int,Float]] (F (List (Param 0)) (Pattern (Param 0))))
 -}
+   ("jux", Sig
+           []
+           (F (F (Pattern Osc) (Pattern Osc))
+            (F (Pattern Osc) (Pattern Osc))
+           )
+   ),
     ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
     ("1", Sig [] $ Pattern Int),
     ("2", Sig [] $ Pattern Int),
@@ -303,16 +303,17 @@ fitsOutput target t | fits t target = True
  4/ Recurse to missing arguments
 -}
 
--- Picks the first value
-walk :: Sig -> IO (String, [String])
+walk :: Sig -> IO ()
 walk target = do r <- randomIO
                  when (null $ options target) $ error ("No options meet " ++ show target)
+                 -- choose something that can supply the type
                  let (name, s@(Sig _ t)) = pick r (options target)
-                     history = [name]
-                 -- putStrLn $ n ++ " :: " ++ show s
-                 -- putStrLn $ name -- ++ " ("
-                 result <- walkFunction history 0 $ s
-                 return (name ++ " " ++ fst result, snd result )
+                 -- recursively walk through the function's arguments, until we get the value
+                 (history, result) <- walkFunction [name] s
+                 putStrLn $ show history
+                 putStrLn $ show $ Arg (Name name) result
+                 return ()
+                 -- return (name ++ " " ++ fst result, snd result )
                  -- putStrLn $ ")"
 
 
@@ -321,28 +322,40 @@ weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO 
 weightedWalkFunction ngramfunc history target = ..
 -}
 
-walkFunction :: [String] -> Int -> Sig -> IO (String, [String])
--- We've matched a function
-walkFunction history depth (Sig ps t@(F arg result)) =
+-- every 3 (fast 2) (sound "bd sn")
+
+-- App (App (App (N "every") (N "3")) (App (N "fast") (N "2"))) (App (N "sound") (N "\"bd sn\""))
+
+data Code = Arg Code Code
+          | Sub Code Code
+          | Name String
+
+instance Show Code
+  where show (Arg a b) = "" ++ show a ++ " " ++ show b ++ ""
+        show (Sub a b) = "(" ++ show a ++ " " ++ show b ++ ")"
+        show (Name s) = s
+
+walkFunction :: [String] -> Sig -> IO ([String], Code)
+walkFunction history (Sig ps t@(F arg result)) =
+  -- We need to
+  -- (a) fill in its first argument (recursively, as it might itself be a function)
+  -- (b) recursively fill in its other arguments
   do r <- randomIO
-     -- Choose from the possible options, with types resolved to match the context
+     -- Find an argument from the possible options, with types resolved to match the context
      let (name,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
-         history' = (name:history)
-     -- Print the name and type of the option we've picked for the argument
-     -- putStrLn $ n ++ " :: " ++ show s
-     -- Recurse with the argument, in case it's a function
-     -- putStrLn $ indent ++ name -- ++ " [arity: " ++ show (arity t') ++ "]"
-     (res, his) <- if (arity arg < arity t')
-                   then (walkFunction (history') (depth+1) $ s)
-                   else (return (" ", history'))
+         -- history' = (name:history)
+     -- Recurse with the argument we've found, if it needs more arguments applied itself
+     (history'', res) <- if (arity arg < arity t')
+                         then do (history', c) <- walkFunction (name:history) s
+                                 return (history', Sub (Name name) c)
+                         else return ((name:history), Name name)
      -- Recurse with the result of the function, in case it's also a function (i.e. we have a multi-argument function)
      -- TODO - maybe the ps will now be wrong?
-     (res', his') <- if (isFunction result)
-                     then (walkFunction (his) depth $ Sig ps result)
-                     else (return (" ", his))
-     return (name ++ " " ++ res ++ " " ++ res', his')
-  where indent = replicate depth ' '
-walkFunction _ _ _ = return (" ", [])
+     if (isFunction result)
+     then do (history''', c) <- walkFunction history'' $ Sig ps result
+             return $ (history''', Arg res c)
+     else return (history'', res)
+walkFunction _ _ = error "error"
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..
