@@ -5,7 +5,7 @@ import Data.Maybe (fromMaybe, catMaybes)
 import System.Random
 import Control.Monad
 
-data Type = 
+data Type =
   F Type Type
   | String
   | Float
@@ -72,7 +72,7 @@ data Construct = Construct {context :: [String],
                            }
 
 functions :: [(String, Sig)]
-functions = 
+functions =
   [--("+", numOp),
    --("-", numOp),
    --("/", floatOp),
@@ -92,8 +92,8 @@ functions =
    -- ("speed", floatToOsc),
    -- ("delay", floatToOsc),
    -- ("pan", floatToOsc),
-   ("every", Sig [WildCard] $ F (Pattern Int) 
-             (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
+   ("every", Sig [WildCard] $ F (Pattern Int)
+             (F (F (Pattern $ Param 0) (Pattern $ Param 0))
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
@@ -110,19 +110,19 @@ functions =
    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
    ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("chunk", Sig [WildCard] $ F (Pattern Int) 
-             (F (F (Pattern $ Param 0) (Pattern $ Param 0)) 
+   ("chunk", Sig [WildCard] $ F (Pattern Int)
+             (F (F (Pattern $ Param 0) (Pattern $ Param 0))
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
-   ("jux", Sig 
-           []  
+   ("jux", Sig
+           []
            (F (F (Pattern Osc) (Pattern Osc))
             (F (Pattern Osc) (Pattern Osc))
            )
    ),
-   ("superimpose", Sig []  
-                       (F (F (Pattern Osc) (Pattern Osc)) 
+   ("superimpose", Sig []
+                       (F (F (Pattern Osc) (Pattern Osc))
                         (F (Pattern Osc) (Pattern Osc))
                        )
    ),
@@ -183,16 +183,16 @@ fits :: Sig -> Sig -> Bool
 fits (Sig _ WildCard) _ = True
 fits _ (Sig _ WildCard) = True
 
-fits (Sig pA (F a a')) (Sig pB (F b b')) = 
+fits (Sig pA (F a a')) (Sig pB (F b b')) =
   (fits (Sig pA a) (Sig pB b)) && (fits (Sig pA a') (Sig pB b'))
 
-fits (Sig pA (OneOf as)) (Sig pB (OneOf bs)) = 
+fits (Sig pA (OneOf as)) (Sig pB (OneOf bs)) =
   intersectBy (\a b -> fits (Sig pA a) (Sig pB b)) as bs /= []
 
-fits (Sig pA (OneOf as)) (Sig pB b) = 
+fits (Sig pA (OneOf as)) (Sig pB b) =
   or $ map (\x -> fits (Sig pA x) (Sig pB b)) as
 
-fits (Sig pA a) (Sig pB (OneOf bs)) = 
+fits (Sig pA a) (Sig pB (OneOf bs)) =
   or $ map (\x -> fits (Sig pA a) (Sig pB x)) bs
 
 fits (Sig pA (Pattern a)) (Sig pB (Pattern b)) = fits (Sig pA a) (Sig pB b)
@@ -216,7 +216,7 @@ fits _ _ = False
 canAs :: Sig -> Sig -> Maybe Sig
 
 -- can function produce target function (and how)?
-canAs (Sig pA (F a a')) (Sig pB (F b b')) = 
+canAs (Sig pA (F a a')) (Sig pB (F b b')) =
   do -- fit argument
      (Sig _ arg) <- (canAs (Sig pA a) (Sig pB b))
      -- fit result
@@ -224,9 +224,9 @@ canAs (Sig pA (F a a')) (Sig pB (F b b')) =
      return $ Sig pA (F arg result)
 
 -- can function produce target value (and how)?
-canAs target@(Sig pA a) (Sig pB (F b b')) = 
+canAs target@(Sig pA a) (Sig pB (F b b')) =
   do (Sig pX x) <- canAs target (Sig pB b')
-     return $ Sig pX $ F b x 
+     return $ Sig pX $ F b x
 
 -- A wildcard can produce anything
 canAs target (Sig _ WildCard) = Just target
@@ -242,7 +242,7 @@ canAs target (Sig pB (OneOf bs)) | isIn = Just target
                                  | otherwise = Nothing
   where isIn = or $ map (\x -> fits target (Sig pB x)) bs
 
--- 
+--
 canAs (Sig pA (Pattern a)) (Sig pB (Pattern b)) =
   do (Sig ps t) <- canAs (Sig pA a) (Sig pB b)
      return $ Sig ps (Pattern t)
@@ -304,42 +304,45 @@ fitsOutput target t | fits t target = True
 -}
 
 -- Picks the first value
-walk :: Sig -> IO ()
+walk :: Sig -> IO (String, [String])
 walk target = do r <- randomIO
                  when (null $ options target) $ error ("No options meet " ++ show target)
                  let (name, s@(Sig _ t)) = pick r (options target)
                      history = [name]
                  -- putStrLn $ n ++ " :: " ++ show s
-                 putStrLn $ name -- ++ " ("
-                 walkFunction history 0 $ s
+                 -- putStrLn $ name -- ++ " ("
+                 result <- walkFunction history 0 $ s
+                 return (name ++ " " ++ fst result, snd result )
                  -- putStrLn $ ")"
+
 
 {-
 weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO ()
 weightedWalkFunction ngramfunc history target = ..
 -}
 
-walkFunction :: [String] -> Int -> Sig -> IO ()
+walkFunction :: [String] -> Int -> Sig -> IO (String, [String])
 -- We've matched a function
 walkFunction history depth (Sig ps t@(F arg result)) =
   do r <- randomIO
      -- Choose from the possible options, with types resolved to match the context
-     let (name,s) = pick r (options $ Sig ps arg)
+     let (name,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
+         history' = (name:history)
      -- Print the name and type of the option we've picked for the argument
      -- putStrLn $ n ++ " :: " ++ show s
      -- Recurse with the argument, in case it's a function
-     putStrLn $ indent ++ name -- ++ " [arity: " ++ show (arity t') ++ "]"
-     when (arity arg < arity (is s)) $ do
-       -- putStrLn $ indent ++ "("
-       walkFunction (name:history) (depth+1) $ s
-       -- putStrLn $ indent ++ ") "
+     -- putStrLn $ indent ++ name -- ++ " [arity: " ++ show (arity t') ++ "]"
+     (res, his) <- if (arity arg < arity t')
+                   then (walkFunction (history') (depth+1) $ s)
+                   else (return (" ", history'))
      -- Recurse with the result of the function, in case it's also a function (i.e. we have a multi-argument function)
      -- TODO - maybe the ps will now be wrong?
-     when (isFunction result) $ do -- putStrLn $ indent ++ "("
-                                   walkFunction (name:history) depth $ Sig ps result
-                                   -- putStrLn $ indent ++ ")"
+     (res', his') <- if (isFunction result)
+                     then (walkFunction (his) depth $ Sig ps result)
+                     else (return (" ", his))
+     return (name ++ " " ++ res ++ " " ++ res', his')
   where indent = replicate depth ' '
-walkFunction _ _ _ = return ()
+walkFunction _ _ _ = return (" ", [])
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..
@@ -353,7 +356,7 @@ pick f xs = xs !! (floor (fromIntegral (length xs) * f))
 
 options :: Sig -> [(String, Sig)]
 options target = possible
-  where 
+  where
     possible = catMaybes $ map look functions
     look (n,s) = do s' <- canAs target s
                     return $ (n,s')
