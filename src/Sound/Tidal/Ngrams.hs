@@ -8,60 +8,66 @@ import Data.String
 import Sound.Tidal.Tokeniser
 
 
-
 -- lookup with tokeniser v2 ..
-lookupT' :: IO ([[[String]]])
-lookupT' = do
+lookupT :: IO ([[String]])
+lookupT = do
               -- add path to directory..
-              handle <- openFile "Sound/Tidal/easy-input.txt" ReadMode
+              handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
               contents <- hGetContents handle
               let reformat = removePunc $ contents
                               -- to do: remove # and $ ?
-                  breakup = reformatCode $ reformat
-                  tokenisation = map (map (toWords). (filter (/= "")). getComponents) $ filter (/= "") $ breakup
-                  output = tokenisation
+                  breakup = breakupCode "\n\n" reformat
+                  tokenised =  map (tokeniser) $ breakup
+                  output = tokenised
               return (output)
 
-
 --ngram out function
-ngramOut :: IO ()
-ngramOut = do
-            tokenised <- lookupT'
-            print (tokenised)
+ngramOut :: String -> IO ([(String, Double)])
+ngramOut st = do
+            tokenised <- lookupT
+            -- order <- getLine
+            let order = 2 -- change to above line to control ngram size..
+                resplit = concat (intersperse [" "] tokenised)
+                ngramFreqs = ngramSort $ ngram order resplit
+                ngramFunc = lookupNgram st $ filterList st ngramFreqs
+                output = ngramFunc
+            return (output)
+
+getNextProbabilities :: String -> IO ()
+getNextProbabilities st = do
+                        ngram <- ngramOut st
+                        let output = map snd ngram
+                        print (output)
 
 
-
--- to do: delete these?
--- lookup with tokeniser
--- lookupT :: IO (String)
-lookupT = do
-            handle <- openFile "Sound/Tidal/easy-input.txt" ReadMode
-            contents <- hGetContents handle
-            -- run tokeniser here..
-            -- tokenised <-
-            -- reformat ignoring punctuation (), $?
-            let reformat = toWords $ removePunc (contents) -- add tokenisation in here..
-            let order = 2 -- keep as order 2 for now..
-            let ngramout = ngramSort $ ngram order $ reformat -- ngram order $ -- map (filter (/= ""))$ $ ngram order
-            return (reformat)
-
+getNextFunctions :: String -> IO ()
+getNextFunctions st = do
+                        ngram <- ngramOut st
+                        let output = map fst ngram
+                        print (output)
 
 -- lookupFunction
-lookupF :: [Char] -> IO ([([Char], Double)])
-lookupF st = do
-              handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
-              contents <- hGetContents handle -- get content immediately?
-              -- order <- getLine
-              let order = 2 -- keep as bigram for now, extend to ngrams once poc works
-              -- get frequency ngrams of functions in the test data..
-              let ngramFreqs = ngramSort $ ngram order $ toWords $ removePunc contents
-              -- run the function on the data
-              let ngramfunc = lookupNgram st $ filterList st ngramFreqs
-              -- get probabilites
-              -- let outProbs = map (filter snd) (ngramfunc)
-              -- return (ngramfunc)
-              -- hClose handle
-              return (ngramfunc)
+-- lookupF :: [Char] -> IO ([([Char], Double)])
+-- lookupF st = do
+--               handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
+--               contents <- hGetContents handle -- get content immediately?
+--               -- order <- getLine
+--               let order = 2 -- keep as bigram for now, extend to ngrams once poc works
+--               -- get frequency ngrams of functions in the test data..
+--               let ngramFreqs = ngramSort $ ngram order $ toWords $ removePunc contents
+--               -- run the function on the data
+--               let ngramfunc = lookupNgram st $ filterList st ngramFreqs
+--               -- get probabilites
+--               -- let outProbs = map (filter snd) (ngramfunc)
+--               -- return (ngramfunc)
+--               -- hClose handle
+--               return (ngramfunc)
+
+
+
+-- remove any ngrams with space characters
+-- removeSpace :: [([a], b)] -> [([a], b)]
+-- removeSpace xs = [ c | c <- xs, (head ( fst c) /= " " ) && (last ( fst c) /= " " ) ]
 
 
 -- function chooser, used in the weighted walk on the ngram above..
