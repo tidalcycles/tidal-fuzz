@@ -324,12 +324,12 @@ walkFunction :: [String] -> Int -> Sig -> IO ()
 walkFunction history depth (Sig ps t@(F arg result)) =
   do r <- randomIO
      -- Choose from the possible options, with types resolved to match the context
-     let (name,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
+     let (name,s) = pick r (options $ Sig ps arg)
      -- Print the name and type of the option we've picked for the argument
      -- putStrLn $ n ++ " :: " ++ show s
      -- Recurse with the argument, in case it's a function
      putStrLn $ indent ++ name -- ++ " [arity: " ++ show (arity t') ++ "]"
-     when (arity arg < arity t') $ do
+     when (arity arg < arity (is s)) $ do
        -- putStrLn $ indent ++ "("
        walkFunction (name:history) (depth+1) $ s
        -- putStrLn $ indent ++ ") "
