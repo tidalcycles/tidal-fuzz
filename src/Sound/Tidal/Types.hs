@@ -4,6 +4,8 @@ import Data.List (intersectBy, nub)
 import Data.Maybe (fromMaybe, catMaybes)
 import System.Random
 import Control.Monad
+import Sound.Tidal.Ngrams
+-- import Sound.Tidal.Tokeniser 
 
 data Type =
   F Type Type
@@ -81,7 +83,7 @@ functions =
    --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
    --("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
    -- ("floor", Sig [] $ F Float Int),
-    ("sine", floatPat),
+  ("sine", floatPat),
    ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
    --("fmap", mapper),
    --("<$>", mapper),
@@ -97,7 +99,7 @@ functions =
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
-   -- ("instantgabba", Sig [] $ Pattern Osc),
+   ("instantgabba", Sig [] $ Pattern Osc),
    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
@@ -308,6 +310,7 @@ walk target = do r <- randomIO
                  when (null $ options target) $ error ("No options meet " ++ show target)
                  -- choose something that can supply the type
                  let (name, s@(Sig _ t)) = pick r (options target)
+
                  -- recursively walk through the function's arguments, until we get the value
                  (history, result) <- walkFunction [name] s
                  putStrLn $ show history
@@ -317,10 +320,26 @@ walk target = do r <- randomIO
                  -- putStrLn $ ")"
 
 
-{-
-weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO ()
-weightedWalkFunction ngramfunc history target = ..
--}
+  {-
+  weightedWalk ng hs =
+  1 Starting with the target (same as above?)
+  2 Find all possible values that could produce this target..
+  3 Pick a function based on probabilites from ngram
+  4 Recurse the function until target met by all parts .. -- to do ..
+  -}
+
+
+weightedWalkFunction ngram history target =
+  do r <- randomIO
+     let (name, prob) = (chooserFunction ngram r)
+         history' = (name:history)
+     -- return (name ++ "" ++ )
+     print (name)
+     -- (res, his) <- if (arity arg < arity t') -- todo here?
+     --               then (weightedWalkFunction )
+
+
+-- lookupF "sound" >>= (\result -> weightedWalk result [] [])
 
 -- every 3 (fast 2) (sound "bd sn")
 
