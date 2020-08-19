@@ -113,14 +113,14 @@ functions =
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
-   ("instantgabba", Sig [] $ Pattern Osc),
+   -- ("instantgabba", Sig [] $ Pattern Osc),
+   ("fast", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+   ("slow", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("silence", Sig [] $ Pattern WildCard),
-   ("density", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("slow", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc))),
    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
@@ -319,7 +319,9 @@ walk sig = do (history, Parens code) <- walk' [] sig
 walk' :: [String] -> Sig -> IO ([String], Code)
 walk' history target = do r <- randomIO
                           when (null $ options target) $ error ("No options meet " ++ show target)
-                          let (name, match) = pick r (options target)
+                          let opts = (options target)
+                              -- opts' = filteropts history opts
+                          let (name, match) = pick {- history -} r opts
                           (history', code) <- supply (name:history) (arity (is match) - arity (is target)) (Name name) match
                           return $ (history', parenthesise code)
       where parenthesise code@(Arg _ _) = Parens code
