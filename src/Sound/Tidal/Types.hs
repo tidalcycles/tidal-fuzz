@@ -1,7 +1,7 @@
 module Sound.Tidal.Types where
 
 import Data.List (intersectBy, nub)
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (fromMaybe, catMaybes, fromJust, isJust)
 import System.Random
 import Control.Monad
 
@@ -79,9 +79,9 @@ functions =
    --("*", numOp),
    --("#", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
    --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
-   --("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+   ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
    -- ("floor", Sig [] $ F Float Int),
-    ("sine", floatPat),
+   ("sine", floatPat),
    ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
    --("fmap", mapper),
    --("<$>", mapper),
@@ -296,66 +296,44 @@ fitsOutput :: Sig -> Sig -> Bool
 fitsOutput target t | fits t target = True
                     | otherwise = maybe False (fitsOutput target) (output t)
 
-{-
- 1/ Start with target (e.g. Pattern OSC)
- 2/ Find all values that could produce that target (resolving type in the process? )
- 3/ Pick one (e.g. at random)
- 4/ Recurse to missing arguments
--}
+walk :: Sig -> IO Code
+walk sig = do (history, Parens code) <- walk' [] sig
+              return code
 
-walk :: Sig -> IO ()
-walk target = do r <- randomIO
-                 when (null $ options target) $ error ("No options meet " ++ show target)
-                 -- choose something that can supply the type
-                 let (name, s@(Sig _ t)) = pick r (options target)
-                 -- recursively walk through the function's arguments, until we get the value
-                 (history, result) <- walkFunction [name] s
-                 putStrLn $ show history
-                 putStrLn $ show $ Arg (Name name) result
-                 return ()
-                 -- return (name ++ " " ++ fst result, snd result )
-                 -- putStrLn $ ")"
+walk' :: [String] -> Sig -> IO ([String], Code)
+walk' history target = do r <- randomIO
+                          when (null $ options target) $ error ("No options meet " ++ show target)
+                          let (name, match) = pick r (options target)
+                          (history', code) <- supply (name:history) (arity (is match) - arity (is target)) (Name name) match
+                          return $ (history', parenthesise code)
+      where parenthesise code@(Arg _ _) = Parens code
+            parenthesise code = code
 
+supply :: [String] -> Int -> Code -> Sig -> IO ([String], Code)
+supply history 0 code _ = return (history, code)
+supply history n code (Sig ps (F arg result))
+  = do (history', code') <- walk' history (Sig ps arg)
+       (history'', code'') <- supply history' (n-1) code' (Sig ps result)
+       return $ (history'', Arg (code) (code''))
 
 {-
 weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO ()
 weightedWalkFunction ngramfunc history target = ..
 -}
 
--- every 3 (fast 2) (sound "bd sn")
-
--- App (App (App (N "every") (N "3")) (App (N "fast") (N "2"))) (App (N "sound") (N "\"bd sn\""))
-
 data Code = Arg Code Code
-          | Sub Code Code
+          | Parens Code
           | Name String
+          -- deriving Show
 
 instance Show Code
-  where show (Arg a b) = "" ++ show a ++ " " ++ show b ++ ""
-        show (Sub a b) = "(" ++ show a ++ " " ++ show b ++ ")"
+  where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
+        -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
+        show (Arg a b) = show a ++ " " ++ show b
+        -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
+        -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
+        show (Parens a) = "(" ++ show a ++ ")"
         show (Name s) = s
-
-walkFunction :: [String] -> Sig -> IO ([String], Code)
-walkFunction history (Sig ps t@(F arg result)) =
-  -- We need to
-  -- (a) fill in its first argument (recursively, as it might itself be a function)
-  -- (b) recursively fill in its other arguments
-  do r <- randomIO
-     -- Find an argument from the possible options, with types resolved to match the context
-     let (name,s@(Sig ps' t')) = pick r (options $ Sig ps arg)
-         -- history' = (name:history)
-     -- Recurse with the argument we've found, if it needs more arguments applied itself
-     (history'', res) <- if (arity arg < arity t')
-                         then do (history', c) <- walkFunction (name:history) s
-                                 return (history', Sub (Name name) c)
-                         else return ((name:history), Name name)
-     -- Recurse with the result of the function, in case it's also a function (i.e. we have a multi-argument function)
-     -- TODO - maybe the ps will now be wrong?
-     if (isFunction result)
-     then do (history''', c) <- walkFunction history'' $ Sig ps result
-             return $ (history''', Arg res c)
-     else return (history'', res)
-walkFunction _ _ = error "error"
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..
