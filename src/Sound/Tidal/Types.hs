@@ -4,6 +4,8 @@ import Data.List (intersectBy, nub)
 import Data.Maybe (fromMaybe, catMaybes, fromJust, isJust)
 import System.Random
 import Control.Monad
+import Sound.Tidal.Ngrams
+-- import Sound.Tidal.Tokeniser 
 
 data Type =
   F Type Type
@@ -71,6 +73,20 @@ data Construct = Construct {context :: [String],
                             csig :: Sig
                            }
 
+data Code = Arg Code Code
+          | Parens Code
+          | Name String
+          -- deriving Show
+
+instance Show Code
+  where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
+        -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
+        show (Arg a b) = show a ++ " " ++ show b
+        -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
+        -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
+        show (Parens a) = "(" ++ show a ++ ")"
+        show (Name s) = s
+
 functions :: [(String, Sig)]
 functions =
   [--("+", numOp),
@@ -97,7 +113,7 @@ functions =
                 (F (Pattern $ Param 0) (Pattern $ Param 0))
              )
    ),
-   -- ("instantgabba", Sig [] $ Pattern Osc),
+   ("instantgabba", Sig [] $ Pattern Osc),
    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
    {-
    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
@@ -316,24 +332,13 @@ supply history n code (Sig ps (F arg result))
        (history'', code'') <- supply history' (n-1) code' (Sig ps result)
        return $ (history'', Arg (code) (code''))
 
-{-
-weightedWalkFunction :: (String -> [(String, Double)]) -> [String] -> Sig -> IO ()
-weightedWalkFunction ngramfunc history target = ..
--}
-
-data Code = Arg Code Code
-          | Parens Code
-          | Name String
-          -- deriving Show
-
-instance Show Code
-  where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
-        -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
-        show (Arg a b) = show a ++ " " ++ show b
-        -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
-        -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
-        show (Parens a) = "(" ++ show a ++ ")"
-        show (Name s) = s
+  {-
+  weightedWalk ng hs =
+  1 Starting with the target (same as above?)
+  2 Find all possible values that could produce this target..
+  3 Pick a function based on probabilites from ngram
+  4 Recurse the function until target met by all parts .. -- to do ..
+  -}
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..

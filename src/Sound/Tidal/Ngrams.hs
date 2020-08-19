@@ -5,20 +5,88 @@ import Data.List
 import Data.Ord
 import Data.Char
 import Data.String
+import Sound.Tidal.Tokeniser
 
 
-main = do
-    handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
-    contents <- hGetContents handle
-    let order = 2 -- keep as bigrams for now..
-    -- remove any unwanted punctuation, reformat each word into separate line
-    let reformat1 = toWords $ removePunc contents
-    -- get frequency ngrams of functions used..
-    let ngramFreqs = ngramSort $ ngram order $ reformat1
-    userword <- getLine
-    let ngramfunc = lookupNgram userword $ filterList userword ngramFreqs
-    print (ngramfunc) -- to do: remove total as variable..
-    hClose handle
+-- lookup with tokeniser v2 ..
+lookupT :: IO ([[String]])
+lookupT = do
+              -- add path to directory..
+              handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
+              contents <- hGetContents handle
+              let reformat = removePunc $ contents
+                              -- to do: remove # and $ ?
+                  breakup = breakupCode "\n\n" reformat
+                  tokenised =  map (tokeniser) $ breakup
+                  output = tokenised
+              return (output)
+
+--ngram out function
+ngramOut :: String -> IO ([(String, Double)])
+ngramOut st = do
+            tokenised <- lookupT
+            -- order <- getLine
+            let order = 2 -- change to above line to control ngram size..
+                resplit = concat (intersperse [" "] tokenised)
+                ngramFreqs = ngramSort $ ngram order resplit
+                ngramFunc = lookupNgram st $ filterList st ngramFreqs
+                output = ngramFunc
+            return (output)
+
+getNextProbabilities :: String -> IO ()
+getNextProbabilities st = do
+                        ngram <- ngramOut st
+                        let output = map snd ngram
+                        print (output)
+
+
+getNextFunctions :: String -> IO ()
+getNextFunctions st = do
+                        ngram <- ngramOut st
+                        let output = map fst ngram
+                        print (output)
+
+-- lookupFunction
+-- lookupF :: [Char] -> IO ([([Char], Double)])
+-- lookupF st = do
+--               handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
+--               contents <- hGetContents handle -- get content immediately?
+--               -- order <- getLine
+--               let order = 2 -- keep as bigram for now, extend to ngrams once poc works
+--               -- get frequency ngrams of functions in the test data..
+--               let ngramFreqs = ngramSort $ ngram order $ toWords $ removePunc contents
+--               -- run the function on the data
+--               let ngramfunc = lookupNgram st $ filterList st ngramFreqs
+--               -- get probabilites
+--               -- let outProbs = map (filter snd) (ngramfunc)
+--               -- return (ngramfunc)
+--               -- hClose handle
+--               return (ngramfunc)
+
+
+
+-- remove any ngrams with space characters
+-- removeSpace :: [([a], b)] -> [([a], b)]
+-- removeSpace xs = [ c | c <- xs, (head ( fst c) /= " " ) && (last ( fst c) /= " " ) ]
+
+
+-- function chooser, used in the weighted walk on the ngram above..
+
+chooserFunction :: (Ord a1, Num a1) => [(a2, a1)] -> a1 -> (a2, a1)
+chooserFunction ng r = head (filter (\(_,y)-> r < y) list )
+  where values = map (fst) ng
+        cweights = scanl1 (+) (map snd ng)
+        list = zip values cweights
+
+
+-- can delete this after
+ngramfunc :: (Eq a , Fractional b, Integral a1) => a -> [([a], a1)] -> [(a, b)]
+ngramfunc st xs = lookupNgram st (filterList st xs)
+
+
+getNextProbability :: [(a, b)] -> [b]
+getNextProbability xs = map (snd) (xs)
+
 
 -- show all ngrams for the given userword..
 lookupNgram :: (Eq a , Fractional b, Integral a1) => a -> [([a], a1)] -> [(a,b)]
@@ -47,53 +115,11 @@ getFrequency :: (a, b) -> b
 getFrequency xs = snd $ (xs)
 
 
-
 -- read input order as an int
 rInt :: String -> Int
 rInt = read
 
 
--- convert a string to an array of its words
-toWords :: String -> [String]
-toWords s =  words s
-
-
--- remove unwanted punctuation
-removePunc :: [Char] -> [Char]
-removePunc xs = [ x | x <- xs, not (x `elem` "*\'()") ]
-
-
--- get everything before a space character
-before :: String -> String
-before xs = takeWhile (/=' ') xs
-
--- get everything after a space character
-after :: String -> String
-after xs = if (dropWhile (/=' ') xs)==[]
-             then []
-             else tail(dropWhile (/=' ') xs)
-
-
--- get everything before line break
-beforeLine :: String -> String
-beforeLine xs = takeWhile (/='\n') xs
-
--- get everything after line break..
-afterLine :: String -> String
-afterLine xs = if (dropWhile (/='\n') xs)==[]
-                 then []
-                 else tail(dropWhile (/='\n') xs)
-
-
--- reformat to a list of words after Line break
-reformatCode :: String -> [String]
-reformatCode [] = []
-reformatCode xs = beforeLine xs : (reformatCode (afterLine xs))
-
--- breakup at the
-breakupCode :: String -> [String]
-breakupCode [] = []
-breakupCode xs = before xs : (breakupCode (after xs))
 
 -- ngram calculator.
 ngram :: Int -> [a] -> [[a]]
