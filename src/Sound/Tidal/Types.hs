@@ -68,15 +68,14 @@ instance Show Sig where
     where ps | params s == [] = ""
              | otherwise = show (params s) ++ " => "
 
-
 data Construct = Construct {context :: [String],
                             csig :: Sig
                            }
 
 data Code = Arg Code Code
           | Parens Code
+          | Dollar Code
           | Name String
-          -- deriving Show
 
 instance Show Code
   where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
@@ -85,6 +84,7 @@ instance Show Code
         -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
         -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
         show (Parens a) = "(" ++ show a ++ ")"
+        show (Dollar a) = "$ " ++ show a
         show (Name s) = s
 
 functions :: [(String, Sig)]
@@ -313,7 +313,7 @@ fitsOutput target t | fits t target = True
                     | otherwise = maybe False (fitsOutput target) (output t)
 
 walk :: Sig -> IO Code
-walk sig = do (history, Parens code) <- walk' [] sig
+walk sig = do (history, code) <- walk' [] sig
               return code
 
 walk' :: [String] -> Sig -> IO ([String], Code)
@@ -323,15 +323,17 @@ walk' history target = do r <- randomIO
                               -- opts' = filteropts history opts
                           let (name, match) = pick {- history -} r opts
                           (history', code) <- supply (name:history) (arity (is match) - arity (is target)) (Name name) match
-                          return $ (history', parenthesise code)
-      where parenthesise code@(Arg _ _) = Parens code
-            parenthesise code = code
+                          return $ (history', code)
+
+parenthesise 1 code@(Arg _ _) = Dollar code
+parenthesise _ code@(Arg _ _) = Parens code
+parenthesise _ code = code
 
 supply :: [String] -> Int -> Code -> Sig -> IO ([String], Code)
 supply history 0 code _ = return (history, code)
 supply history n code (Sig ps (F arg result))
   = do (history', code') <- walk' history (Sig ps arg)
-       (history'', code'') <- supply history' (n-1) code' (Sig ps result)
+       (history'', code'') <- supply history' (n-1) (parenthesise n code') (Sig ps result)
        return $ (history'', Arg (code) (code''))
 
   {-
