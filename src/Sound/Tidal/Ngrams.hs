@@ -5,6 +5,7 @@ import Data.List
 import Data.Ord
 import Data.Char
 import Data.String
+import Data.Scientific
 import Sound.Tidal.Tokeniser
 
 
@@ -12,7 +13,7 @@ import Sound.Tidal.Tokeniser
 lookupT :: IO ([[String]])
 lookupT = do
               -- add path to directory..
-              handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
+              handle <- openFile "Sound/Tidal/easy-input.txt" ReadMode
               contents <- hGetContents handle
               let reformat = removePunc $ contents
                               -- to do: remove # and $ ?
@@ -22,29 +23,35 @@ lookupT = do
               return (output)
 
 --ngram out function
-ngramOut :: String -> IO ([(String, Double)])
-ngramOut st = do
-            tokenised <- lookupT
-            -- order <- getLine
-            let order = 2 -- change to above line to control ngram size..
-                resplit = concat (intersperse [" "] tokenised)
-                ngramFreqs = ngramSort $ ngram order resplit
-                ngramFunc = lookupNgram st $ filterList st ngramFreqs
-                output = ngramFunc
-            return (output)
-
-getNextProbabilities :: String -> IO ()
-getNextProbabilities st = do
-                        ngram <- ngramOut st
-                        let output = map snd ngram
-                        print (output)
+ngramOut :: [[String]] -> String -> IO ([(String, Double)])
+ngramOut token st = do
+                      -- tokenised <- lookupT
+                      -- order <- getLine
+                      let order = 2 -- change to above line to control ngram size..
+                          resplit = concat (intersperse [" "] token)
+                          ngramFreqs = ngramSort $ ngram order resplit
+                          ngramFunc = lookupNgram st $ filterList st ngramFreqs
+                          output = ngramFunc
+                      return (output)
 
 
-getNextFunctions :: String -> IO ()
-getNextFunctions st = do
-                        ngram <- ngramOut st
-                        let output = map fst ngram
-                        print (output)
+
+--
+-- getNextProbabilities :: String -> IO ([Double])
+-- getNextProbabilities st = do
+--                         ngram <- ngramOut token st
+--                         -- putStrLn "Coherence/Contrast metric:"
+--                         -- coherence <- getLine
+--                         -- let output = map (* (read coherence::Double)) $ map snd ngram
+--                         let output = map snd ngram
+--                         return (output)
+--
+--
+-- getNextFunctions :: String -> IO ([String])
+-- getNextFunctions st = do
+--                         ngram <- ngramOut st
+--                         let output = map fst ngram
+--                         return (output)
 
 -- lookupFunction
 -- lookupF :: [Char] -> IO ([([Char], Double)])
@@ -63,8 +70,6 @@ getNextFunctions st = do
 --               -- hClose handle
 --               return (ngramfunc)
 
-
-
 -- remove any ngrams with space characters
 -- removeSpace :: [([a], b)] -> [([a], b)]
 -- removeSpace xs = [ c | c <- xs, (head ( fst c) /= " " ) && (last ( fst c) /= " " ) ]
@@ -82,10 +87,6 @@ chooserFunction ng r = head (filter (\(_,y)-> r < y) list )
 -- can delete this after
 ngramfunc :: (Eq a , Fractional b, Integral a1) => a -> [([a], a1)] -> [(a, b)]
 ngramfunc st xs = lookupNgram st (filterList st xs)
-
-
-getNextProbability :: [(a, b)] -> [b]
-getNextProbability xs = map (snd) (xs)
 
 
 -- show all ngrams for the given userword..
@@ -119,6 +120,9 @@ getFrequency xs = snd $ (xs)
 rInt :: String -> Int
 rInt = read
 
+-- read input order as Double
+rDouble :: String -> Double
+rDouble = read
 
 
 -- ngram calculator.

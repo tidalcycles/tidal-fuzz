@@ -1,4 +1,8 @@
 jux (rev) $ sound "bd sn"
 
-slow 4 $ n "g3"
-# sound "supergong"
+every 4 (fast 2)
+$ jux rev
+$ sound "[odx*2, bd:3(5,8)]" # shape 0.25 # speed "1 0.8"
+# cutoff (scale 500 1500 $ slow 8 $ sine)
+# resonance "0.1"
+# gain 1.2
