@@ -19,5 +19,5 @@ advanced = do
     plotAdv "advanced.eps" opts hist
 
 histCalc st = do
-                "ngram <- ngramOut st
+                ngram <- ngramOut st
                 return (ngram)

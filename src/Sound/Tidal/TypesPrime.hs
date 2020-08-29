@@ -86,114 +86,89 @@ instance Show Code
          show (Parens a) = "(" ++ show a ++ ")"
          show (Name s) = s
 
-
 functions :: [(String, Sig)]
 functions =
- [--("+", numOp),
-  --("-", numOp),
-  --("/", floatOp),
-  --("*", numOp),
-  --("#", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
-  ("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
-  ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
-  -- ("floor", Sig [] $ F Float Int),
-  ("sine", floatPat),
-  ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
-  --("fmap", mapper),
-  --("<$>", mapper),
-  --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
-  ("sound", stringToOsc),
-  ("s", stringToOsc),
-  -- ("vowel", stringToOsc),
-  -- ("shape", floatToOsc),
-  -- ("speed", floatToOsc),
-  -- ("delay", floatToOsc),
-  -- ("pan", floatToOsc),
-  ("every", Sig [WildCard] $ F (Pattern Int)
-            (F (F (Pattern $ Param 0) (Pattern $ Param 0))
-               (F (Pattern $ Param 0) (Pattern $ Param 0))
+   [--("+", numOp),
+    --("-", numOp),
+    --("/", floatOp),
+    --("*", numOp),
+    --("#", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
+    --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+    ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+    -- ("floor", Sig [] $ F Float Int),
+    ("sine", floatPat),
+    ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
+    --("fmap", mapper),
+    --("<$>", mapper),
+    --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
+    ("sound", stringToOsc),
+    -- ("vowel", stringToOsc),
+    -- ("shape", floatToOsc),
+    -- ("speed", floatToOsc),
+    -- ("delay", floatToOsc),
+    -- ("pan", floatToOsc),
+    ("every", Sig [WildCard] $ F (Pattern Int)
+              (F (F (Pattern $ Param 0) (Pattern $ Param 0))
+                 (F (Pattern $ Param 0) (Pattern $ Param 0))
+              )
+    ),
+    -- ("instantgabba", Sig [] $ Pattern Osc),
+    ("fast", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("slow", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    {-
+    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("silence", Sig [] $ Pattern WildCard),
+    ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc))),
+    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
+    ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("chunk", Sig [WildCard] $ F (Pattern Int)
+              (F (F (Pattern $ Param 0) (Pattern $ Param 0))
+                 (F (Pattern $ Param 0) (Pattern $ Param 0))
+              )
+    ),
+    ("superimpose", Sig []
+                        (F (F (Pattern Osc) (Pattern Osc))
+                         (F (Pattern Osc) (Pattern Osc))
+                        )
+    ),
+    ("wedge", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)))),
+    ("brak", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
+    ("pick", Sig [] $ F String (F Int String)),
+    ("]", Sig [OneOf [String,Int,Float]] (List (Param 0))),
+    ("[", Sig [OneOf [String,Int,Float]] (F (List (Param 0)) (Pattern (Param 0))))
+ -}
+    ("jux", Sig
+            []
+            (F (F (Pattern Osc) (Pattern Osc))
+             (F (Pattern Osc) (Pattern Osc))
             )
-  ),
-  -- ("instantgabba", Sig [] $ Pattern Osc),
-  ("fast", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  ("slow", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  {-
-  ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  ("silence", Sig [] $ Pattern WildCard),
-  ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc))),
-  ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
-  ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-  ("chunk", Sig [WildCard] $ F (Pattern Int)
-            (F (F (Pattern $ Param 0) (Pattern $ Param 0))
-               (F (Pattern $ Param 0) (Pattern $ Param 0))
-            )
-  ),
-  ("superimpose", Sig []
-                      (F (F (Pattern Osc) (Pattern Osc))
-                       (F (Pattern Osc) (Pattern Osc))
-                      )
-  ),
-  ("wedge", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)))),
-  ("brak", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
-  ("pick", Sig [] $ F String (F Int String)),
-  ("]", Sig [OneOf [String,Int,Float]] (List (Param 0))),
-  ("[", Sig [OneOf [String,Int,Float]] (F (List (Param 0)) (Pattern (Param 0))))
--}
-  ("jux", Sig
-          []
-          (F (F (Pattern Osc) (Pattern Osc))
-           (F (Pattern Osc) (Pattern Osc))
-          )
-  ),
-   ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
-   ("1", Sig [] $ Pattern (OneOf [Int, Float]) ),
-   ("2", Sig [] $ Pattern Int),
-   ("4", Sig [] $ Pattern Int),
-   ("8", Sig [] $ Pattern Int),
-   ("16", Sig [] $ Pattern Int),
-   ("\"3 4 5\"", Sig [] $ Pattern Int),
-   -- ("1", Sig [] $ Pattern Float),
-   ("2", Sig [] $ Pattern Float),
-   ("\"3 4 5\"", Sig [] $ Pattern Float),
-   -- ("1", Sig [] $ Float),
-   ("2", Sig [] $ Float),
-   ("4", Sig [] $ Float),
-   ("8", Sig [] $ Float),
-   ("16", Sig [] $ Float),
-   ("\"3 4 5\"", Sig [] $ Float),
-   ("\"bd sn\"", Sig [] $ Pattern String),
-   ("\"supermandolin\"", Sig [] $ Pattern String),
-   ("\"supergong\"", Sig [] $ Pattern String),
-   ("\"superpiano\"", Sig [] $ Pattern String),
-   ("\"superhex\"", Sig [] $ Pattern String),
-   ("\"supersquare\"", Sig [] $ Pattern String),
-   ("\"supersaw\"", Sig [] $ Pattern String),
-   ("\"superpwm\"", Sig [] $ Pattern String),
-   ("\"supercomparator\"", Sig [] $ Pattern String),
-   ("\"superchip\"", Sig [] $ Pattern String),
-   ("\"superfork\"", Sig [] $ Pattern String),
-   ("\"supervibe\"", Sig [] $ Pattern String),
-   ("\"superhoover\"", Sig [] $ Pattern String),
-   ("\"superzow\"", Sig [] $ Pattern String),
-   ("\"supergrind\"", Sig [] $ Pattern String),
-   ("\"superprimes\"", Sig [] $ Pattern String),
-   ("\"superwavemechanics\"", Sig [] $ Pattern String),
-   ("\"supertron\"", Sig [] $ Pattern String),
-   ("\"superreese\"", Sig [] $ Pattern String),
-   ("\"superfm\"", Sig [] $ Pattern String)
- ]
- where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
-       floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
-       floatPat = Sig [] $ Pattern Float
-       mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
-       stringToOsc = Sig [] $ F (Pattern String) (Pattern Osc)
-       floatToOsc = Sig [] $ F (Pattern Float) (Pattern Osc)
-       number = OneOf [Float, Int, Pattern Float, Pattern Int]
-
+    ),
+     ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
+     ("1", Sig [] $ Pattern Int),
+     ("2", Sig [] $ Pattern Int),
+     ("\"3 4 5\"", Sig [] $ Pattern Int),
+     ("1", Sig [] $ Pattern Float),
+     ("2", Sig [] $ Pattern Float),
+     ("\"3 4 5\"", Sig [] $ Pattern Float),
+     ("1", Sig [] $ Float),
+     ("2", Sig [] $ Float),
+     ("\"3 4 5\"", Sig [] $ Float),
+     ("1", Sig [] $ Float),
+     ("2", Sig [] $ Float),
+     ("\"3 4 5\"", Sig [] $ Float),
+     ("\"bd sn\"", Sig [] $ Pattern String)
+   ]
+   where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
+         floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
+         floatPat = Sig [] $ Pattern Float
+         mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
+         stringToOsc = Sig [] $ F (Pattern String) (Pattern Osc)
+         floatToOsc = Sig [] $ F (Pattern Float) (Pattern Osc)
+         number = OneOf [Float, Int, Pattern Float, Pattern Int]
 
 
 showFunctions :: String
@@ -378,7 +353,6 @@ supply history n code (Sig ps (F arg result))
   -}
 
 
-
 -- wWalk ::
 wWalk sig = do
               tokenised <- lookupT
@@ -386,18 +360,22 @@ wWalk sig = do
               return (code)
 
 
+
 wWalk' history token target = do
                           r <- randomIO
                           when (null $ options target) $ error ("No options meet " ++ show target)
                           let opts = options target
                           wOpts <- weightedOpts history opts token
+                          -- putStrLn $ "wWalk' woptions: " ++ show wOpts
                           -- (opts' = flter weightedOts) -- to do, add filters here(?)
                           let (name, match, prob) = weightedPick r wOpts
+                          putStrLn $ show (name, match, prob)
                           (history', code) <- wSupply (name:history) token (arity (is match)
                                       - arity (is target)) (Name name) match
                           return $ (history', parenthesise code)
       where parenthesise code@(Arg _ _) = Parens code
             parenthesise code = code
+
 
 
 wSupply :: [String] -> [[String]] -> Int -> Code -> Sig -> IO ([String], Code)
@@ -421,30 +399,31 @@ weightedOpts history opts token = do
                                 ngram <- ngramOut token (head history)
                                 let out' = map (\(name, sig) -> (name, sig, lookup (name) (ngram))) opts
                                     values = catMaybes $ map td out'
-                                    summer = (average values ) -- * (rDouble adherence) -- no corpus giving this value for rev rev
+                                    summer = (average values) -- * (rDouble adherence) -- no corpus giving this value for rev rev
                                     out'' = map (\(name, sig, weight) -> (name, sig, fromMaybe summer weight)) out'
                                 return (out'')
 
 average xs
-  | xs == [] = 1
+  | xs == [] = 0.5
   | otherwise = sum xs / (fromIntegral $ length xs)
 
 
--- weightedPick :: Double -> [(String, Sig, Double)] -> [(String, Sig)]
+weightedPick :: (Ord c, Num c) => c -> [(a, b, c)] -> (a, b, c)
 weightedPick f [] = error $ "No options to choose from"
-weightedPick f xs = head (filter (\(_, _, y)-> f < y) list )
+weightedPick f xs = head (filter (\(_, _, y)-> f' < y) list )
   where values = map (fs) xs
+        f' = f * (sum (map td xs))
         sigs = map (sn) xs
         cweights = scanl1 (+) (map td xs)
         list = zip3 values sigs cweights
 
-fs :: (a, b,c) -> a
+fs :: (a, b, c) -> a
 fs (a, _, _) = a
 
-sn :: (a, b,c ) -> b
+sn :: (a,b,c ) -> b
 sn (_, b, _) = b
 
-td :: (a,b,c) -> c
+td :: (a, b, c) -> c
 td (_, _, c) = c
 
 
@@ -480,7 +459,6 @@ notInOptions opts ngram = (map fst ngram) \\ (map fst opts)
 --                             if (this == "rev")
 --                               then return (map (td * 0) wOpts)
 --                               else return (wOpts)
-
 
 
 simplifyType :: Type -> Type

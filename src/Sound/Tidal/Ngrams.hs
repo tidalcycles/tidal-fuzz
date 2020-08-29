@@ -13,12 +13,12 @@ import Sound.Tidal.Tokeniser
 lookupT :: IO ([[String]])
 lookupT = do
               -- add path to directory..
-              handle <- openFile "Sound/Tidal/easy-input.txt" ReadMode
+              handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
               contents <- hGetContents handle
               let reformat = removePunc $ contents
                               -- to do: remove # and $ ?
                   breakup = breakupCode "\n\n" reformat
-                  tokenised =  map (tokeniser) $ breakup
+                  tokenised = map (tokeniser) $ breakup
                   output = tokenised
               return (output)
 
@@ -26,10 +26,12 @@ lookupT = do
 ngramOut :: [[String]] -> String -> IO ([(String, Double)])
 ngramOut token st = do
                       -- tokenised <- lookupT
-                      -- order <- getLine
                       let order = 2 -- change to above line to control ngram size..
+                          -- turns input into a list of strings separated by " "
                           resplit = concat (intersperse [" "] token)
+                          -- get all possible ngrams
                           ngramFreqs = ngramSort $ ngram order resplit
+                          -- sort by incoming string
                           ngramFunc = lookupNgram st $ filterList st ngramFreqs
                           output = ngramFunc
                       return (output)
@@ -85,8 +87,8 @@ chooserFunction ng r = head (filter (\(_,y)-> r < y) list )
 
 
 -- can delete this after
-ngramfunc :: (Eq a , Fractional b, Integral a1) => a -> [([a], a1)] -> [(a, b)]
-ngramfunc st xs = lookupNgram st (filterList st xs)
+-- ngramfunc :: (Eq a , Fractional b, Integral a1) => a -> [([a], a1)] -> [(a, b)]
+-- ngramfunc st xs = lookupNgram st (filterList st xs)
 
 
 -- show all ngrams for the given userword..
