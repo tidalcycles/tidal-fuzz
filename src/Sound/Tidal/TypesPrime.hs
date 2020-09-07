@@ -316,6 +316,8 @@ fitsOutput target t | fits t target = True
                     | otherwise = maybe False (fitsOutput target) (output t)
 
 
+debug = False
+
 -- walk :: Sig -> IO Code
 walk:: Sig -> IO Code
 walk sig = do
@@ -342,7 +344,6 @@ supply history n code (Sig ps (F arg result))
        (history'', code'') <- supply history' (n-1) code' (Sig ps result)
        return $ (history'', Arg (code) (code''))
 
-
   {-
       weighted walk..
       1. randomly pick the first element of the walk
@@ -352,52 +353,53 @@ supply history n code (Sig ps (F arg result))
       5. picking something at random not in the ngram <- how likely.
   -}
 
-
 -- wWalk ::
 wWalk sig = do
-              tokenised <- lookupT
-              (history, Parens code) <- wWalk' [] tokenised sig
+              ngramFreqs <- lookupT
+              (history, Parens code) <- wWalk' [] ngramFreqs sig
               return (code)
 
-
-
-wWalk' history token target = do
+wWalk' history ngramFreqs target = do
+                          when debug $ putStrLn "wWalk'"
                           r <- randomIO
                           when (null $ options target) $ error ("No options meet " ++ show target)
                           let opts = options target
-                          wOpts <- weightedOpts history opts token
+                          wOpts <- weightedOpts history opts ngramFreqs
                           -- putStrLn $ "wWalk' woptions: " ++ show wOpts
                           -- (opts' = flter weightedOts) -- to do, add filters here(?)
+                          when debug $ putStrLn "pick"
                           let (name, match, prob) = weightedPick r wOpts
+                          when debug $ putStrLn "picked"
                           putStrLn $ show (name, match, prob)
-                          (history', code) <- wSupply (name:history) token (arity (is match)
+                          (history', code) <- wSupply (name:history) ngramFreqs (arity (is match)
                                       - arity (is target)) (Name name) match
+                          when debug $ putStrLn "hm"
                           return $ (history', parenthesise code)
       where parenthesise code@(Arg _ _) = Parens code
             parenthesise code = code
 
-
-
-wSupply :: [String] -> [[String]] -> Int -> Code -> Sig -> IO ([String], Code)
-wSupply history token 0 code _ = return (history, code)
-wSupply history token n code (Sig ps (F arg result))
+wSupply :: [String] -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
+wSupply history ngramFreqs 0 code _ = return (history, code)
+wSupply history ngramFreqs n code (Sig ps (F arg result))
   = do
-       (history', code') <- wWalk' history token (Sig ps arg)
-       (history'', code'') <- wSupply history' token (n-1) code' (Sig ps result)
+       when debug $ putStrLn "wSupply'"
+       (history', code') <- wWalk' history ngramFreqs (Sig ps arg)
+       (history'', code'') <- wSupply history' ngramFreqs (n-1) code' (Sig ps result)
        return $ (history'', Arg (code) (code''))
 
 
-weightedOpts :: [String] -> [(String, Sig)] -> [[String]] -> IO [(String, Sig, Double )]
-weightedOpts history opts token = do
+weightedOpts :: [String] -> [(String, Sig)] -> [([String], Int)] -> IO [(String, Sig, Double )]
+weightedOpts history opts ngramFreqs = do
                               -- adherence <- getLine
+                              when debug $ putStrLn "weightedOpts"
                               let dfltWeights = 1 / (fromIntegral (length opts))
                                   dfltArray = map (* dfltWeights) (take (length opts) [1,1..])
                               if (null history) then do
                                 let out = zip3 (map fst opts) (map snd opts) (dfltArray)
                                 return (out)
                               else do
-                                ngram <- ngramOut token (head history)
-                                let out' = map (\(name, sig) -> (name, sig, lookup (name) (ngram))) opts
+                                let ngram = ngramOut ngramFreqs (head history)
+                                    out' = map (\(name, sig) -> (name, sig, lookup (name) (ngram))) opts
                                     values = catMaybes $ map td out'
                                     summer = (average values) -- * (rDouble adherence) -- no corpus giving this value for rev rev
                                     out'' = map (\(name, sig, weight) -> (name, sig, fromMaybe summer weight)) out'
