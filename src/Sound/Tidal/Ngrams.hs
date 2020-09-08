@@ -29,43 +29,7 @@ lookupT = do
 --ngram out function
 ngramOut :: [([String], Int)] -> String -> ([(String, Double)])
 ngramOut ngramFreqs st = lookupNgram st $ filterList st ngramFreqs
---
--- getNextProbabilities :: String -> IO ([Double])
--- getNextProbabilities st = do
---                         ngram <- ngramOut token st
---                         -- putStrLn "Coherence/Contrast metric:"
---                         -- coherence <- getLine
---                         -- let output = map (* (read coherence::Double)) $ map snd ngram
---                         let output = map snd ngram
---                         return (output)
---
---
--- getNextFunctions :: String -> IO ([String])
--- getNextFunctions st = do
---                         ngram <- ngramOut st
---                         let output = map fst ngram
---                         return (output)
 
--- lookupFunction
--- lookupF :: [Char] -> IO ([([Char], Double)])
--- lookupF st = do
---               handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
---               contents <- hGetContents handle -- get content immediately?
---               -- order <- getLine
---               let order = 2 -- keep as bigram for now, extend to ngrams once poc works
---               -- get frequency ngrams of functions in the test data..
---               let ngramFreqs = ngramSort $ ngram order $ toWords $ removePunc contents
---               -- run the function on the data
---               let ngramfunc = lookupNgram st $ filterList st ngramFreqs
---               -- get probabilites
---               -- let outProbs = map (filter snd) (ngramfunc)
---               -- return (ngramfunc)
---               -- hClose handle
---               return (ngramfunc)
-
--- remove any ngrams with space characters
--- removeSpace :: [([a], b)] -> [([a], b)]
--- removeSpace xs = [ c | c <- xs, (head ( fst c) /= " " ) && (last ( fst c) /= " " ) ]
 
 
 -- function chooser, used in the weighted walk on the ngram above..
