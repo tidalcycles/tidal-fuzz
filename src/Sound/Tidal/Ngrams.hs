@@ -10,7 +10,7 @@ import Sound.Tidal.Tokeniser
 
 
 -- lookup with tokeniser v2 ..
-lookupT :: IO ([[String]])
+lookupT :: IO ([([String], Int)])
 lookupT = do
               -- add path to directory..
               handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
@@ -19,25 +19,16 @@ lookupT = do
                               -- to do: remove # and $ ?
                   breakup = breakupCode "\n\n" reformat
                   tokenised = map (tokeniser) $ breakup
-                  output = tokenised
-              return (output)
+                  order = 2 -- change to above line to control ngram size..
+                  -- turns input into a list of strings separated by " "
+                  resplit = concat (intersperse [" "] tokenised)
+                  -- get all possible ngrams
+                  ngramFreqs = ngramSort $ ngram order resplit
+              return ngramFreqs
 
 --ngram out function
-ngramOut :: [[String]] -> String -> IO ([(String, Double)])
-ngramOut token st = do
-                      -- tokenised <- lookupT
-                      let order = 2 -- change to above line to control ngram size..
-                          -- turns input into a list of strings separated by " "
-                          resplit = concat (intersperse [" "] token)
-                          -- get all possible ngrams
-                          ngramFreqs = ngramSort $ ngram order resplit
-                          -- sort by incoming string
-                          ngramFunc = lookupNgram st $ filterList st ngramFreqs
-                          output = ngramFunc
-                      return (output)
-
-
-
+ngramOut :: [([String], Int)] -> String -> ([(String, Double)])
+ngramOut ngramFreqs st = lookupNgram st $ filterList st ngramFreqs
 --
 -- getNextProbabilities :: String -> IO ([Double])
 -- getNextProbabilities st = do
