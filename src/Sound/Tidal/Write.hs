@@ -8,11 +8,20 @@ walkOut = do
               return (show string ++ "\n\n")
 
 
-writeText :: IO ()
+replicateWalk = do
+                  -- to do:: controllable number of iterations
+                  -- iterations <- getLine
+                  -- let iter = rInt iterations
+                  let iter = 3
+                  out <- replicateM iter walkOut -- replicateM_ vs replicate M?
+                  return (out)
+
+
+rInt :: String -> Int
+rInt = read
+
+
 writeText = do
-              iterations <- getLine
-              -- to do, turn into recursion with n iterations.
-              o <- walkOut
-              o' <- walkOut
-              o'' <- walkOut
-              writeFile "example.txt" (join [o, o', o''])
+              walks <- replicateWalk
+              -- return (walks)
+              writeFile "example.txt" (join [walks!!0, walks!!1, walks!!2])
