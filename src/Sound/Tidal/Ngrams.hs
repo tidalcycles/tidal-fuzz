@@ -9,27 +9,29 @@ import Data.Scientific
 import Sound.Tidal.Tokeniser
 
 
--- lookup with tokeniser v2 ..
+-- lookup with tokeniser
 lookupT :: IO ([([String], Int)])
 lookupT = do
               -- add path to directory..
               handle <- openFile "Sound/Tidal/tidal-input.txt" ReadMode
               contents <- hGetContents handle
-              let reformat = removePunc $ contents
-                              -- to do: remove # and $ ?
+              let -- remove unnecessary punctation from corpus
+                  reformat = removePunc $ contents
+                  -- break at double line character
                   breakup = breakupCode "\n\n" reformat
+                  -- split into array of tokens, handling mininotation as whole token
                   tokenised = map (tokeniser) $ breakup
-                  order = 2 -- change to above line to control ngram size..
+                  order = 2 -- can change to control the size of ngram.
                   -- turns input into a list of strings separated by " "
                   resplit = concat (intersperse [" "] tokenised)
                   -- get all possible ngrams
                   ngramFreqs = ngramSort $ ngram order resplit
               return ngramFreqs
 
+
 --ngram out function
 ngramOut :: [([String], Int)] -> String -> ([(String, Double)])
 ngramOut ngramFreqs st = lookupNgram st $ filterList st ngramFreqs
-
 
 
 -- function chooser, used in the weighted walk on the ngram above..
@@ -39,11 +41,6 @@ chooserFunction ng r = head (filter (\(_,y)-> r < y) list )
   where values = map (fst) ng
         cweights = scanl1 (+) (map snd ng)
         list = zip values cweights
-
-
--- can delete this after
--- ngramfunc :: (Eq a , Fractional b, Integral a1) => a -> [([a], a1)] -> [(a, b)]
--- ngramfunc st xs = lookupNgram st (filterList st xs)
 
 
 -- show all ngrams for the given userword..
