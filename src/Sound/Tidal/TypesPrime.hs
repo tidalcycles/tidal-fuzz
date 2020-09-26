@@ -318,7 +318,6 @@ fitsOutput target t | fits t target = True
 
 debug = False
 
--- walk :: Sig -> IO Code
 walk:: Sig -> IO Code
 walk sig = do
               (history, Parens code) <- walk' [] sig
@@ -329,8 +328,7 @@ walk' :: [String] -> Sig -> IO ([String], Code)
 walk' history target = do r <- randomIO
                           when (null $ options target) $ error ("No options meet " ++ show target)
                           let opts = (options target)
-                              -- opts' = filteropts history opts
-                          let (name, match) = pick {- history -} r opts
+                          let (name, match) = pick r opts
                           (history', code) <- supply (name:history) (arity (is match)
                                       - arity (is target)) (Name name) match
                           return $ (history', parenthesise code)
@@ -365,10 +363,10 @@ wWalk' history ngramFreqs target = do
                           when (null $ options target) $ error ("No options meet " ++ show target)
                           let opts = options target
                           wOpts <- weightedOpts history opts ngramFreqs
+                          wOpts' <- filterBloat history wOpts
                           -- putStrLn $ "wWalk' woptions: " ++ show wOpts
-                          -- (opts' = flter weightedOts) -- to do, add filters here(?)
                           when debug $ putStrLn "pick"
-                          let (name, match, prob) = weightedPick r wOpts
+                          let (name, match, prob) = weightedPick r wOpts'
                           when debug $ putStrLn "picked"
                           putStrLn $ show (name, match, prob)
                           (history', code) <- wSupply (name:history) ngramFreqs (arity (is match)
@@ -377,6 +375,16 @@ wWalk' history ngramFreqs target = do
                           return $ (history', parenthesise code)
       where parenthesise code@(Arg _ _) = Parens code
             parenthesise code = code
+
+
+filterBloat :: [String] -> [(String, Sig, Double )] -> IO ([(String, Sig, Double )])
+filterBloat history wOpts = do
+                              wOpts' <- bloat (head history) wOpts
+                              if (length history > 0) then
+                                return ( wOpts')  -- if non-empty history, filter ..
+                                else
+                                  return (wOpts) -- if history is empty.. then don't filter
+
 
 wSupply :: [String] -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
 wSupply history ngramFreqs 0 code _ = return (history, code)
@@ -439,10 +447,15 @@ notInOptions :: [(String, Sig)] ->[(String, Double)] ->  [String]
 notInOptions opts ngram = (map fst ngram) \\ (map fst opts)
 
 
--- slimming the functions..
--- bloat
--- (+1 ) (-1) (+1 ) ===  (+1)
--- e.g rev rev rev = rev / rev rev = id
+-- bloat :: String -> [([Char], b, c)] -> [([Char], b, c)]
+-- bloat :: String -> [([Char], a, b)] -> IO ([([Char], b, c)])
+bloat st xs = do
+                      -- if (head history = []) then ( do return (histo) )
+                      -- let st = if (emptyHead history) then ()
+                      let out = [c | c <- xs, fs c /= st]
+                      return (out)
+
+emptyHead history = if (head history /= []) then (True) else (False)
 
 -- idempotent functions
 -- f(f(x)) = f(x)
