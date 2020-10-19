@@ -1,11 +1,12 @@
 module Sound.Tidal.Types where
 
-import Data.List (intersectBy, nub)
+import Data.List (intersectBy, nub, (\\))
 import Data.Maybe (fromMaybe, catMaybes, fromJust, isJust)
 import System.Random
 import Control.Monad
 import Sound.Tidal.Ngrams
--- import Sound.Tidal.Tokeniser 
+import GHC.Float
+
 
 data Type =
   F Type Type
@@ -30,7 +31,6 @@ instance Eq Type where
   String == String = True
   Float == Float = True
   Bool == Bool = True
-  Int == Int = True
   Osc == Osc = True
   OscStream == OscStream = True
   OneOf as == OneOf bs = as == bs
@@ -41,7 +41,6 @@ instance Eq Type where
   SimpleList a == SimpleList b = a == b
   _ == _ = False
 
-
 -- Type signature
 data Sig = Sig {params :: [Type],
                 is :: Type
@@ -49,127 +48,131 @@ data Sig = Sig {params :: [Type],
            deriving Eq
 
 instance Show Type where
-  show (F a b) = "(" ++ show a ++ " -> " ++ show b ++ ")"
-  show String = "s"
-  show Float = "f"
-  show Bool = "#"
-  show Int = "i"
-  show Osc = "osc"
-  show (OneOf ts) = "?" ++ (show ts)
-  show (Pattern t) = "p [" ++ (show t) ++ "]"
-  show WildCard = "*"
-  show (Param n) = "param#" ++ (show n)
-  show (OscStream) = "stream"
-  show (List t) = "list [" ++ (show t) ++ "]"
-  show (SimpleList t) = "simplelist [" ++ (show t) ++ "]"
+ show (F a b) = "(" ++ show a ++ " -> " ++ show b ++ ")"
+ show String = "s"
+ show Float = "f"
+ show Bool = "#"
+ show Int = "i"
+ show Osc = "osc"
+ show (OneOf ts) = "?" ++ (show ts)
+ show (Pattern t) = "p [" ++ (show t) ++ "]"
+ show WildCard = "*"
+ show (Param n) = "param#" ++ (show n)
+ show (OscStream) = "stream"
+ show (List t) = "list [" ++ (show t) ++ "]"
+ show (SimpleList t) = "simplelist [" ++ (show t) ++ "]"
+
 
 instance Show Sig where
-  show s = ps ++ (show $ is s)
-    where ps | params s == [] = ""
-             | otherwise = show (params s) ++ " => "
+   show s = ps ++ (show $ is s)
+     where ps | params s == [] = ""
+              | otherwise = show (params s) ++ " => "
+
 
 data Construct = Construct {context :: [String],
-                            csig :: Sig
-                           }
-
+                             csig :: Sig
+                            }
 data Code = Arg Code Code
-          | Parens Code
-          | Dollar Code
-          | Name String
+           | Parens Code
+           | Name String
+           -- deriving Show
 
 instance Show Code
-  where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
-        -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
-        show (Arg a b) = show a ++ " " ++ show b
-        -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
-        -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
-        show (Parens a) = "(" ++ show a ++ ")"
-        show (Dollar a) = "$ " ++ show a
-        show (Name s) = s
+   where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
+         -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
+         show (Arg a b) = show a ++ " " ++ show b
+         -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
+         -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
+         show (Parens a) = "(" ++ show a ++ ")"
+         show (Name s) = s
 
 functions :: [(String, Sig)]
 functions =
-  [--("+", numOp),
-   --("-", numOp),
-   --("/", floatOp),
-   --("*", numOp),
-   --("#", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
-   --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
-   ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
-   -- ("floor", Sig [] $ F Float Int),
-   ("sine", floatPat),
-   ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
-   --("fmap", mapper),
-   --("<$>", mapper),
-   --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
-   ("sound", stringToOsc),
-   -- ("vowel", stringToOsc),
-   -- ("shape", floatToOsc),
-   -- ("speed", floatToOsc),
-   -- ("delay", floatToOsc),
-   -- ("pan", floatToOsc),
-   ("every", Sig [WildCard] $ F (Pattern Int)
-             (F (F (Pattern $ Param 0) (Pattern $ Param 0))
-                (F (Pattern $ Param 0) (Pattern $ Param 0))
-             )
-   ),
-   -- ("instantgabba", Sig [] $ Pattern Osc),
-   ("fast", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("slow", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   {-
-   ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("silence", Sig [] $ Pattern WildCard),
-   ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc))),
-   ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
-   ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
-   ("chunk", Sig [WildCard] $ F (Pattern Int)
-             (F (F (Pattern $ Param 0) (Pattern $ Param 0))
-                (F (Pattern $ Param 0) (Pattern $ Param 0))
-             )
-   ),
-   ("superimpose", Sig []
-                       (F (F (Pattern Osc) (Pattern Osc))
-                        (F (Pattern Osc) (Pattern Osc))
-                       )
-   ),
-   ("wedge", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)))),
-   ("brak", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
-   ("pick", Sig [] $ F String (F Int String)),
-   ("]", Sig [OneOf [String,Int,Float]] (List (Param 0))),
-   ("[", Sig [OneOf [String,Int,Float]] (F (List (Param 0)) (Pattern (Param 0))))
+   [("(+)", numOp),
+    --("-", numOp),
+    --("/", floatOp),
+    --("*", numOp),
+    --("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
+    --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+    ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
+    -- ("floor", Sig [] $ F Float Int),
+    ("sine", floatPat),
+    ("run", Sig [] $ F (Pattern Int) (Pattern Int)),
+    --("fmap", mapper),
+    --("<$>", mapper),
+    --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
+    ("sound", stringToOsc),
+    --("vowel", stringToOsc),
+    -- ("shape", floatToOsc),
+    -- ("speed", floatToOsc),
+    -- ("delay", floatToOsc),
+    -- ("pan", floatToOsc),
+    ("every", Sig [WildCard] $ F (Pattern Int)
+              (F (F (Pattern $ Param 0) (Pattern $ Param 0))
+                 (F (Pattern $ Param 0) (Pattern $ Param 0))
+              )
+    ),
+    -- ("instantgabba", Sig [] $ Pattern Osc),
+    ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("slow", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    {-
+    ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("silence", Sig [] $ Pattern WildCard),
+    ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc))),
+    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc))),
+    ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0))),
+    ("chunk", Sig [WildCard] $ F (Pattern Int)
+              (F (F (Pattern $ Param 0) (Pattern $ Param 0))
+                 (F (Pattern $ Param 0) (Pattern $ Param 0))
+              )
+    ),
+    ("superimpose", Sig []
+                        (F (F (Pattern Osc) (Pattern Osc))
+                         (F (Pattern Osc) (Pattern Osc))
+                        )
+    ),
+    ("wedge", Sig [WildCard] $ F (Float) (F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)))),
+    ("brak", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
+    ("pick", Sig [] $ F String (F Int String)),
+    ("]", Sig [OneOf [String,Int,Float]] (List (Param 0))),
+    ("[", Sig [OneOf [String,Int,Float]] (F (List (Param 0)) (Pattern (Param 0))))
+ -}
+    ("jux", Sig
+            []
+            (F (F (Pattern Osc) (Pattern Osc))
+             (F (Pattern Osc) (Pattern Osc))
+            )
+    ),
+     ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
+     ("1", Sig [] $ Pattern Int),
+     ("2", Sig [] $ Pattern Int),
+     ("\"3 4 5\"", Sig [] $ Pattern Int),
+     ("1", Sig [] $ Pattern Float),
+     ("2", Sig [] $ Pattern Float),
+     ("\"3 4 5\"", Sig [] $ Pattern Float),
+     {-
+     ("1", Sig [] $ Float),
+     ("2", Sig [] $ Float),
+     ("\"3 4 5\"", Sig [] $ Float),
+     ("1", Sig [] $ Float),
+     ("2", Sig [] $ Float),
+     ("\"3 4 5\"", Sig [] $ Float),
 -}
-   ("jux", Sig
-           []
-           (F (F (Pattern Osc) (Pattern Osc))
-            (F (Pattern Osc) (Pattern Osc))
-           )
-   ),
-    ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0)),
-    ("1", Sig [] $ Pattern Int),
-    ("2", Sig [] $ Pattern Int),
-    ("\"3 4 5\"", Sig [] $ Pattern Int),
-    ("1", Sig [] $ Pattern Float),
-    ("2", Sig [] $ Pattern Float),
-    ("\"3 4 5\"", Sig [] $ Pattern Float),
-    ("1", Sig [] $ Float),
-    ("2", Sig [] $ Float),
-    ("\"3 4 5\"", Sig [] $ Float),
-    ("1", Sig [] $ Float),
-    ("2", Sig [] $ Float),
-    ("\"3 4 5\"", Sig [] $ Float),
-    ("\"bd sn\"", Sig [] $ Pattern String)
-  ]
-  where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
-        floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
-        floatPat = Sig [] $ Pattern Float
-        mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
-        stringToOsc = Sig [] $ F (Pattern String) (Pattern Osc)
-        floatToOsc = Sig [] $ F (Pattern Float) (Pattern Osc)
-        number = OneOf [Float, Int, Pattern Float, Pattern Int]
+     ("\"bd sn\"", Sig [] $ Pattern String)
+   ]
+   where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
+         floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
+         floatPat = Sig [] $ Pattern Float
+         mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
+         stringToOsc = Sig [] $ F (Pattern String) (Pattern Osc)
+         floatToOsc = Sig [] $ F (Pattern Float) (Pattern Osc)
+--         number = OneOf [Pattern Float, Pattern Int]
+         number = Pattern (OneOf[Float,Int])
+
 
 showFunctions :: String
 showFunctions = concatMap f functions
@@ -191,25 +194,27 @@ stringToType s = Pattern t -- TODO OneOf [t, Pattern t]
         scanType Float (c:s) | elem c ['0' .. '9'] = scanType Float s
                              | otherwise = String
 
+
 stringToSig :: String -> Sig
 stringToSig s = fromMaybe def $ lookup s functions
-  where def = Sig [] (stringToType s)
+   where def = Sig [] (stringToType s)
+
 
 fits :: Sig -> Sig -> Bool
 fits (Sig _ WildCard) _ = True
 fits _ (Sig _ WildCard) = True
 
 fits (Sig pA (F a a')) (Sig pB (F b b')) =
-  (fits (Sig pA a) (Sig pB b)) && (fits (Sig pA a') (Sig pB b'))
+ (fits (Sig pA a) (Sig pB b)) && (fits (Sig pA a') (Sig pB b'))
 
 fits (Sig pA (OneOf as)) (Sig pB (OneOf bs)) =
-  intersectBy (\a b -> fits (Sig pA a) (Sig pB b)) as bs /= []
+ intersectBy (\a b -> fits (Sig pA a) (Sig pB b)) as bs /= []
 
 fits (Sig pA (OneOf as)) (Sig pB b) =
-  or $ map (\x -> fits (Sig pA x) (Sig pB b)) as
+ or $ map (\x -> fits (Sig pA x) (Sig pB b)) as
 
 fits (Sig pA a) (Sig pB (OneOf bs)) =
-  or $ map (\x -> fits (Sig pA a) (Sig pB x)) bs
+ or $ map (\x -> fits (Sig pA a) (Sig pB x)) bs
 
 fits (Sig pA (Pattern a)) (Sig pB (Pattern b)) = fits (Sig pA a) (Sig pB b)
 
@@ -237,7 +242,7 @@ canAs (Sig pA (F a a')) (Sig pB (F b b')) =
      (Sig _ arg) <- (canAs (Sig pA a) (Sig pB b))
      -- fit result
      (Sig _ result) <- canAs (Sig pA a') (Sig pB b')
-     return $ Sig pA (F arg result)
+     return $ Sig pB (F arg result)
 
 -- can function produce target value (and how)?
 canAs target@(Sig pA a) (Sig pB (F b b')) =
@@ -297,6 +302,7 @@ resolveParam ps (Pattern t) = Pattern $ resolveParam ps t
 resolveParam ps (List t) = List $ resolveParam ps t
 resolveParam _ t = t
 
+
 setAt :: [a] -> Int -> a -> [a]
 setAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
 
@@ -312,37 +318,180 @@ fitsOutput :: Sig -> Sig -> Bool
 fitsOutput target t | fits t target = True
                     | otherwise = maybe False (fitsOutput target) (output t)
 
-walk :: Sig -> IO Code
-walk sig = do (history, code) <- walk' [] sig
-              return code
+
+debug = True
+
+walk:: Sig -> IO Code
+walk sig = do
+              (history, Parens code) <- walk' [] sig
+              return (code)
+
 
 walk' :: [String] -> Sig -> IO ([String], Code)
 walk' history target = do r <- randomIO
                           when (null $ options target) $ error ("No options meet " ++ show target)
                           let opts = (options target)
-                              -- opts' = filteropts history opts
-                          let (name, match) = pick {- history -} r opts
-                          (history', code) <- supply (name:history) (arity (is match) - arity (is target)) (Name name) match
-                          return $ (history', code)
-
-parenthesise 1 code@(Arg _ _) = Dollar code
-parenthesise _ code@(Arg _ _) = Parens code
-parenthesise _ code = code
+                          let (name, match) = pick r opts
+                          (history', code) <- supply (name:history) (arity (is match)
+                                      - arity (is target)) (Name name) match
+                          return $ (history', parenthesise code)
+      where parenthesise code@(Arg _ _) = Parens code
+            parenthesise code = code
 
 supply :: [String] -> Int -> Code -> Sig -> IO ([String], Code)
 supply history 0 code _ = return (history, code)
 supply history n code (Sig ps (F arg result))
   = do (history', code') <- walk' history (Sig ps arg)
-       (history'', code'') <- supply history' (n-1) (parenthesise n code') (Sig ps result)
+       (history'', code'') <- supply history' (n-1) code' (Sig ps result)
        return $ (history'', Arg (code) (code''))
 
   {-
-  weightedWalk ng hs =
-  1 Starting with the target (same as above?)
-  2 Find all possible values that could produce this target..
-  3 Pick a function based on probabilites from ngram
-  4 Recurse the function until target met by all parts .. -- to do ..
+      weighted walk..
+      1. randomly pick the first element of the walk
+      2. generate next possible options using ngram
+      3. choose based on probabilities which function next
+      4. recurse? how to integrate with type checking?
+      5. picking something at random not in the ngram <- how likely.
   -}
+
+wWalk :: Sig -> IO Code
+wWalk sig = do
+              -- get ngrams from corpus
+              ngramFreqs <- lookupT
+              -- recurse
+              (history, Parens code) <- wWalk' [] 1 ngramFreqs sig
+              return (code)
+
+-- every 3 rev (every 4 (fast (rev (every 3 rev))
+
+wWalk' :: [String] -> Int -> [([String], Int)] -> Sig -> IO ([String], Code)
+wWalk' history depth ngramFreqs target = do
+                          when debug $ putStrLn $ "wWalk': " ++ show target
+                          r <- randomIO
+                          -- Get all the syntactically correct possibilities for next function/value
+                          let opts = options target
+                          when (null opts) $ error ("No options meet " ++ show target)
+                          -- Weight the possibilities based on ngrams
+                          wOpts <- weightedOpts history opts ngramFreqs
+                          -- Constrain (TODO - would it be better to filter before weighting?)
+                          wOpts' <- filterBloat history wOpts
+                          let wOpts'' = rollOff depth wOpts'
+                          -- Pick one
+                          let (name, match, prob) = weightedPick r wOpts''
+                          when debug $ putStrLn $ show (name, match, prob)
+                          -- Recurse on any needed parameters
+                          (history', code) <- wSupply (name:history) depth ngramFreqs (arity (is match)
+                                      - arity (is target)) (Name name) match
+                          return $ (history', parenthesise code)
+      where parenthesise code@(Arg _ _) = Parens code
+            parenthesise code = code
+
+
+filterBloat :: [String] -> [(String, Sig, Double )] -> IO ([(String, Sig, Double )])
+filterBloat history wOpts = do
+                              wOpts' <- bloat (head history) wOpts
+                              if (length history > 0) then
+                                return ( wOpts')  -- if non-empty history, filter ..
+                                else
+                                  return (wOpts) -- if history is empty.. then don't filter
+
+
+wSupply :: [String] -> Int -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
+wSupply history _ ngramFreqs 0 code _ = return (history, code)
+wSupply history depth ngramFreqs n code (Sig ps (F arg result))
+  = do
+       -- when debug $ putStrLn "wSupply'"
+       -- 
+       (history', code') <- wWalk' history (depth + 1) ngramFreqs (Sig ps arg)
+       (history'', code'') <- wSupply history' depth ngramFreqs (n-1) code' (Sig ps result)
+       return $ (history'', Arg (code) (code''))
+
+rollOff :: Int -> [(String, Sig, Double)] -> [(String, Sig, Double)]
+rollOff depth wOpts = map f wOpts
+  where f (name, sig, weight) = (name, sig, mungeWeight (arity $ is sig) weight)
+        mungeWeight 0 w = w
+        -- TODO - adjust this curve..
+        mungeWeight a w = w * (1/((fromIntegral a) * (fromIntegral depth)))
+        
+weightedOpts :: [String] -> [(String, Sig)] -> [([String], Int)] -> IO [(String, Sig, Double )]
+weightedOpts history opts ngramFreqs = do
+                              -- adherence <- getLine
+                              -- when debug $ putStrLn "weightedOpts"
+                              let dfltWeights = 1 / (fromIntegral (length opts))
+                                  dfltArray = map (* dfltWeights) (take (length opts) [1,1..])
+                              if (null history) then do
+                                let out = zip3 (map fst opts) (map snd opts) (dfltArray)
+                                return (out)
+                              else do
+                                let ngram = ngramOut ngramFreqs (head history)
+                                    out' = map (\(name, sig) -> (name, sig, lookup (name) (ngram))) opts
+                                    values = catMaybes $ map td out'
+                                    summer = (average values) -- * (rDouble adherence) -- no corpus giving this value for rev rev
+                                    out'' = map (\(name, sig, weight) -> (name, sig, fromMaybe summer weight)) out'
+                                return (out'')
+
+average xs
+  | xs == [] = 0.5
+  | otherwise = sum xs / (fromIntegral $ length xs)
+
+
+weightedPick :: (Ord c, Num c) => c -> [(a, b, c)] -> (a, b, c)
+weightedPick f [] = error $ "No options to choose from"
+weightedPick f xs = head (filter (\(_, _, y)-> f' < y) list )
+  where values = map (fs) xs
+        f' = f * (sum (map td xs))
+        sigs = map (sn) xs
+        cweights = scanl1 (+) (map td xs)
+        list = zip3 values sigs cweights
+
+fs :: (a, b, c) -> a
+fs (a, _, _) = a
+
+sn :: (a,b,c ) -> b
+sn (_, b, _) = b
+
+td :: (a, b, c) -> c
+td (_, _, c) = c
+
+
+
+-- difference of options not in ngram
+notInNgram :: [(String, Sig)] -> [(String, Double)] -> [String]
+notInNgram opts ngram = (map fst opts) \\ (map fst ngram)
+
+-- get difference of ngram not in options
+notInOptions :: [(String, Sig)] ->[(String, Double)] ->  [String]
+notInOptions opts ngram = (map fst ngram) \\ (map fst opts)
+
+
+-- bloat :: String -> [([Char], b, c)] -> [([Char], b, c)]
+-- bloat :: String -> [([Char], a, b)] -> IO ([([Char], b, c)])
+bloat st xs = do
+                      -- if (head history = []) then ( do return (histo) )
+                      -- let st = if (emptyHead history) then ()
+                      let out = [c | c <- xs, fs c /= st]
+                      return (out)
+
+emptyHead history = if (head history /= []) then (True) else (False)
+
+-- idempotent functions
+-- f(f(x)) = f(x)
+-- e.g. every 1 (fast 2 ) = fast 2
+
+
+-- filter :: [String] -> [(String, Sig, Double)] -> ??
+-- filter history wOpts = do
+                          -- let this = head history
+                          -- if fst wOpts == this then  -- multiply the weights to reduce likelihood of occuring
+
+
+-- filterRev :: []
+-- filterRev history wOpts = do
+--                             let this = head history
+--                             if (this == "rev")
+--                               then return (map (td * 0) wOpts)
+--                               else return (wOpts)
+
 
 simplifyType :: Type -> Type
 simplifyType x@(OneOf []) = x -- shouldn't happen..
