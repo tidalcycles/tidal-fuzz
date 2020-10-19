@@ -92,7 +92,7 @@ functions =
     --("-", numOp),
     --("/", floatOp),
     --("*", numOp),
-    --("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
+    ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc))),
     --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
     ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc))),
     -- ("floor", Sig [] $ F Float Int),
@@ -102,7 +102,7 @@ functions =
     --("<$>", mapper),
     --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1)))),
     ("sound", stringToOsc),
-    --("vowel", stringToOsc),
+    -- ("vowel", stringToOsc),
     -- ("shape", floatToOsc),
     -- ("speed", floatToOsc),
     -- ("delay", floatToOsc),
@@ -164,7 +164,7 @@ functions =
 -}
      ("\"bd sn\"", Sig [] $ Pattern String)
    ]
-   where numOp = Sig [number] $ F (Param 0) $ F (Param 0) (Param 0)
+   where numOp = Sig [OneOf[Float,Int]] $ F (Pattern $ Param 0) $ F (Pattern $ Param 0) (Pattern $ Param 0)
          floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
          floatPat = Sig [] $ Pattern Float
          mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
@@ -236,13 +236,13 @@ fits _ _ = False
 -- returns the target, or nothing
 canAs :: Sig -> Sig -> Maybe Sig
 
--- can function produce target function (and how)?
+-- can function b produce target function a (and how)?
 canAs (Sig pA (F a a')) (Sig pB (F b b')) =
   do -- fit argument
      (Sig _ arg) <- (canAs (Sig pA a) (Sig pB b))
      -- fit result
      (Sig _ result) <- canAs (Sig pA a') (Sig pB b')
-     return $ Sig pB (F arg result)
+     return $ Sig pA (F arg result)
 
 -- can function produce target value (and how)?
 canAs target@(Sig pA a) (Sig pB (F b b')) =
@@ -374,8 +374,8 @@ wWalk' history depth ngramFreqs target = do
                           -- Weight the possibilities based on ngrams
                           wOpts <- weightedOpts history opts ngramFreqs
                           -- Constrain (TODO - would it be better to filter before weighting?)
-                          wOpts' <- filterBloat history wOpts
-                          let wOpts'' = rollOff depth wOpts'
+                          let wOpts' = filterBloat history wOpts
+                              wOpts'' = rollOff depth wOpts'
                           -- Pick one
                           let (name, match, prob) = weightedPick r wOpts''
                           when debug $ putStrLn $ show (name, match, prob)
@@ -387,14 +387,13 @@ wWalk' history depth ngramFreqs target = do
             parenthesise code = code
 
 
-filterBloat :: [String] -> [(String, Sig, Double )] -> IO ([(String, Sig, Double )])
-filterBloat history wOpts = do
-                              wOpts' <- bloat (head history) wOpts
-                              if (length history > 0) then
-                                return ( wOpts')  -- if non-empty history, filter ..
-                                else
-                                  return (wOpts) -- if history is empty.. then don't filter
+filterBloat :: [String] -> [(String, Sig, Double )] -> ([(String, Sig, Double )])
+filterBloat [] wOpts = wOpts
+filterBloat history wOpts = bloat (head history) wOpts
 
+-- bloat :: String -> [([Char], b, c)] -> [([Char], b, c)]
+-- bloat :: String -> [([Char], a, b)] -> IO ([([Char], b, c)])
+bloat st xs = [c | c <- xs, fs c /= st]
 
 wSupply :: [String] -> Int -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
 wSupply history _ ngramFreqs 0 code _ = return (history, code)
@@ -462,17 +461,6 @@ notInNgram opts ngram = (map fst opts) \\ (map fst ngram)
 -- get difference of ngram not in options
 notInOptions :: [(String, Sig)] ->[(String, Double)] ->  [String]
 notInOptions opts ngram = (map fst ngram) \\ (map fst opts)
-
-
--- bloat :: String -> [([Char], b, c)] -> [([Char], b, c)]
--- bloat :: String -> [([Char], a, b)] -> IO ([([Char], b, c)])
-bloat st xs = do
-                      -- if (head history = []) then ( do return (histo) )
-                      -- let st = if (emptyHead history) then ()
-                      let out = [c | c <- xs, fs c /= st]
-                      return (out)
-
-emptyHead history = if (head history /= []) then (True) else (False)
 
 -- idempotent functions
 -- f(f(x)) = f(x)
