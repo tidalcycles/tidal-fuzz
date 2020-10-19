@@ -97,7 +97,7 @@ functions =
     --("*", numOp, Any),
     ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc)), Any),
     --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Any),
-    ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Any),
+    ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Max 1),
     -- ("floor", Sig [] $ F Float Int, Any),
     ("sine", floatPat, Any),
     ("run", Sig [] $ F (Pattern Int) (Pattern Int), Any),
@@ -325,6 +325,7 @@ fitsOutput target t | fits t target = True
 
 debug = True
 
+{-
 walk:: Sig -> IO Code
 walk sig = do
               (history, Parens code) <- walk' [] sig
@@ -335,7 +336,7 @@ walk' :: [String] -> Sig -> IO ([String], Code)
 walk' history target = do r <- randomIO
                           when (null $ options target) $ error ("No options meet " ++ show target)
                           let opts = (options target)
-                          let (name, match) = pick r opts
+                          let (name, match, _) = pick r opts
                           (history', code) <- supply (name:history) (arity (is match)
                                       - arity (is target)) (Name name) match
                           return $ (history', parenthesise code)
@@ -348,6 +349,7 @@ supply history n code (Sig ps (F arg result))
   = do (history', code') <- walk' history (Sig ps arg)
        (history'', code'') <- supply history' (n-1) code' (Sig ps result)
        return $ (history'', Arg (code) (code''))
+-}
 
   {-
       weighted walk..
@@ -373,7 +375,9 @@ wWalk' history depth ngramFreqs target = do
                           when debug $ putStrLn $ "wWalk': " ++ show target
                           r <- randomIO
                           -- Get all the syntactically correct possibilities for next function/value
-                          let opts = filterBloat history $ options target
+                          let opts = filterBloat history
+                                     $ filterOccurances history
+                                     $ options target
                           when (null opts) $ error ("No options meet " ++ show target)
                           -- Weight the possibilities based on ngrams
                           wOpts <- weightedOpts history opts ngramFreqs
@@ -394,6 +398,12 @@ filterBloat :: [String] -> [(String, Sig)] -> ([(String, Sig)])
 filterBloat [] opts = opts
 filterBloat history opts = bloat (head history) opts
   where bloat st xs = [c | c <- xs, fst c /= st]
+
+filterOccurances :: [String] -> [(String, Sig, Occurances)] -> ([(String, Sig)])
+filterOccurances [] opts = map (\(a,b,_) -> (a,b)) $ opts
+filterOccurances history opts = map (\(a,b,_) -> (a,b)) $ filter f opts
+  where f (name, sig, Any) = True
+        f (name, sig, Max mx) = mx >= (length $ filter (== name) history)
 
 wSupply :: [String] -> Int -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
 wSupply history _ ngramFreqs 0 code _ = return (history, code)
@@ -491,15 +501,15 @@ pick :: Float -> [a] -> a
 pick f [] = error "no options to pick from"
 pick f xs = xs !! (floor (fromIntegral (length xs) * f))
 
-options :: Sig -> [(String, Sig)]
+options :: Sig -> [(String, Sig, Occurances)]
 options target = possible
   where
     possible = catMaybes $ map look functions
-    look (n,s,_) = do s' <- canAs target s
-                      return $ (n,s')
+    look (n,s,o) = do s' <- canAs target s
+                      return $ (n,s',o)
 
 showopts :: Sig -> String
-showopts target = concatMap (\(n,s) -> n ++ ": " ++ show s ++ "\n") (options target)
+showopts target = concatMap (\(n,s,_) -> n ++ ": " ++ show s ++ "\n") (options target)
 
 isFunction :: Type -> Bool
 isFunction (F _ _) = True
