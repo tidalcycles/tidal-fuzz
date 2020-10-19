@@ -11,6 +11,7 @@ import GHC.Float
 data Type =
   F Type Type
   | String
+  | VowelString
   | Float
   | Int
   | Bool
@@ -29,6 +30,7 @@ instance Eq Type where
                           a' == b'
                          ]
   String == String = True
+  VowelString == VowelString = True
   Float == Float = True
   Bool == Bool = True
   Osc == Osc = True
@@ -50,6 +52,7 @@ data Sig = Sig {params :: [Type],
 instance Show Type where
  show (F a b) = "(" ++ show a ++ " -> " ++ show b ++ ")"
  show String = "s"
+ show VowelString = "vs"
  show Float = "f"
  show Bool = "#"
  show Int = "i"
@@ -105,7 +108,7 @@ functions =
     --("<$>", mapper, Any),
     --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1))), Any),
     ("sound", stringToOsc, Max 1),
-    -- ("vowel", stringToOsc, Any),
+    ("vowel", vowelStringToOsc, Max 1),
     -- ("shape", floatToOsc, Any),
     -- ("speed", floatToOsc, Any),
     -- ("delay", floatToOsc, Any),
@@ -165,13 +168,15 @@ functions =
      ("2", Sig [] $ Float, Any),
      ("\"3 4 5\"", Sig [] $ Float, Any),
 -}
-     ("\"bd sn\"", Sig [] $ Pattern String, Any)
+     ("\"bd sn\"", Sig [] $ Pattern String, Any),
+     ("\"a e i o u\"", Sig [] $ Pattern VowelString, Any)
    ]
    where numOp = Sig [OneOf[Float,Int]] $ F (Pattern $ Param 0) $ F (Pattern $ Param 0) (Pattern $ Param 0)
          floatOp = Sig [] $ F (Pattern Float) (F (Pattern Float) (Pattern Float))
          floatPat = Sig [] $ Pattern Float
          mapper = Sig [WildCard, WildCard] $ F (F (Param 0) (Param 1)) $ F (Pattern (Param 0)) (Pattern (Param 1))
          stringToOsc = Sig [] $ F (Pattern String) (Pattern Osc)
+         vowelStringToOsc = Sig [] $ F (Pattern VowelString) (Pattern Osc)
          floatToOsc = Sig [] $ F (Pattern Float) (Pattern Osc)
 --         number = OneOf [Pattern Float, Pattern Int]
          number = Pattern (OneOf[Float,Int])
@@ -372,7 +377,7 @@ wWalk sig = do
 
 wWalk' :: [String] -> Int -> [([String], Int)] -> Sig -> IO ([String], Code)
 wWalk' history depth ngramFreqs target = do
-                          when debug $ putStrLn $ "wWalk': " ++ show target
+                          when debug $ putStrLn $ "wWalk': " ++ show target ++ "\n" ++ show history
                           r <- randomIO
                           -- Get all the syntactically correct possibilities for next function/value
                           let opts = filterBloat history
@@ -403,7 +408,7 @@ filterOccurances :: [String] -> [(String, Sig, Occurances)] -> ([(String, Sig)])
 filterOccurances [] opts = map (\(a,b,_) -> (a,b)) $ opts
 filterOccurances history opts = map (\(a,b,_) -> (a,b)) $ filter f opts
   where f (name, sig, Any) = True
-        f (name, sig, Max mx) = mx >= (length $ filter (== name) history)
+        f (name, sig, Max mx) = mx > (length $ filter (== name) history)
 
 wSupply :: [String] -> Int -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
 wSupply history _ ngramFreqs 0 code _ = return (history, code)
