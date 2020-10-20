@@ -350,9 +350,12 @@ wWalk sig = do
               -- get ngrams from corpus
               ngramFreqs <- lookupT
               -- recurse
-              (history, Parens code) <- wWalk' [] 1 ngramFreqs sig
-              check ngramFreqs history code
+              (history, code) <- wWalk' [] 1 ngramFreqs sig
+              code <- check ngramFreqs history code
+              return $ removeParens code
   where
+    removeParens (Parens code) = code
+    removeParens code = code
     check :: [([String], Int)] -> [String] -> Code -> IO Code
     check ngramFreqs history code | "sound" `elem` history = return code
                                   | otherwise = do putStrLn "** [Trying again ..] **"
