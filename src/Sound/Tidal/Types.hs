@@ -82,7 +82,7 @@ data Code = Arg Code Code
 
 instance Show Code
    where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
-         -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
+         show (Arg a (Parens b)) = show a ++ " $ " ++ show b
          show (Arg a b) = show a ++ " " ++ show b
          -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
          -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
@@ -334,7 +334,7 @@ fitsOutput target t | fits t target = True
                     | otherwise = maybe False (fitsOutput target) (output t)
 
 
-debug = True
+debug = False
 
   {-
       weighted walk..
@@ -358,7 +358,7 @@ wWalk sig = do
     removeParens code = code
     check :: [([String], Int)] -> [String] -> Code -> IO Code
     check ngramFreqs history code | "sound" `elem` history = return code
-                                  | otherwise = do putStrLn "** [Trying again ..] **"
+                                  | otherwise = do when debug $ putStrLn "** [Trying again ..] **"
                                                    (history', code') <- wWalk' history 1 ngramFreqs sig
                                                    let code'' = Arg (Name "(#)") (Arg code code')
                                                        history'' = history' ++ history
