@@ -27,6 +27,8 @@ library
   build-depends:       base >=4.12 && <4.13,
                        tidal
                      , random
+                     , split
+                     , scientific
                        
   -- hs-source-dirs:
   default-language:    Haskell2010
