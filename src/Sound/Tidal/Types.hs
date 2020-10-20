@@ -91,6 +91,7 @@ instance Show Code
 
 data Occurances = Any
                 | Max Int
+  deriving Show
 
 functions :: [(String, Sig, Occurances)]
 functions =
@@ -98,7 +99,9 @@ functions =
     --("-", numOp, Any),
     --("/", floatOp, Any),
     --("*", numOp, Any),
-    ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc)), Any),
+    
+    -- Max should be = number of controls - 1
+    ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc)), Max 1),
     --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Any),
     ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Max 1),
     -- ("floor", Sig [] $ F Float Int, Any),
@@ -117,7 +120,7 @@ functions =
               (F (F (Pattern $ Param 0) (Pattern $ Param 0))
                  (F (Pattern $ Param 0) (Pattern $ Param 0))
               )
-    , Any),
+    , Max 3),
     -- ("instantgabba", Sig [] $ Pattern Osc, Any),
     ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("slow", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
@@ -152,7 +155,7 @@ functions =
             (F (F (Pattern Osc) (Pattern Osc))
              (F (Pattern Osc) (Pattern Osc))
             )
-    , Any),
+    , Max 1),
      ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0), Any),
      ("1", Sig [] $ Pattern Int, Any),
      ("2", Sig [] $ Pattern Int, Any),
@@ -232,9 +235,12 @@ fits (Sig pA (List a)) (Sig pB (List b)) = fits (Sig pA a) (Sig pB b)
 fits (Sig pA a) (Sig pB (Param b)) = fits (Sig pA a) (Sig pB (pB !! b))
 fits (Sig pA (Param a)) (Sig pB b) = fits (Sig pA (pA !! a)) (Sig pB b)
 
+-- TODO - could just do
+-- fits (Sig _ a) (Sig _ b)   = a == b ?
 fits (Sig _ Float) (Sig _ Float)   = True
 fits (Sig _ Int) (Sig _ Int)       = True
 fits (Sig _ String) (Sig _ String) = True
+fits (Sig _ VowelString) (Sig _ VowelString) = True
 fits (Sig _ OscStream) (Sig _ OscStream) = True
 fits (Sig _ Osc) (Sig _ Osc) = True
 
