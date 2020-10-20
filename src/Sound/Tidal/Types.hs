@@ -112,8 +112,8 @@ functions =
     --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1))), Any),
     ("sound", stringToOsc, Max 1),
     ("vowel", vowelStringToOsc, Max 1),
-    -- ("shape", floatToOsc, Any),
-    -- ("speed", floatToOsc, Any),
+    ("shape", floatToOsc, Any),
+    ("speed", floatToOsc, Any),
     -- ("delay", floatToOsc, Any),
     -- ("pan", floatToOsc, Any),
     ("every", Sig [WildCard] $ F (Pattern Int)
@@ -360,7 +360,7 @@ wWalk sig = do
     check ngramFreqs history code | "sound" `elem` history = return code
                                   | otherwise = do when debug $ putStrLn "** [Trying again ..] **"
                                                    (history', code') <- wWalk' history 1 ngramFreqs sig
-                                                   let code'' = Arg (Name "(#)") (Arg code code')
+                                                   let code'' = Parens $ Arg (Name "(#)") (Arg code code')
                                                        history'' = history' ++ history
                                                    check ngramFreqs history'' code''
 
