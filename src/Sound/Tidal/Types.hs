@@ -125,13 +125,13 @@ functions =
     ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("slow", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
+    -- ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
+    -- ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc)), Max 1),
     {-
     ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("silence", Sig [] $ Pattern WildCard, Any),
-    ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc)), Any),
-    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc)), Any),
     ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("chunk", Sig [WildCard] $ F (Pattern Int)
@@ -336,32 +336,6 @@ fitsOutput target t | fits t target = True
 
 debug = True
 
-{-
-walk:: Sig -> IO Code
-walk sig = do
-              (history, Parens code) <- walk' [] sig
-              return (code)
-
-
-walk' :: [String] -> Sig -> IO ([String], Code)
-walk' history target = do r <- randomIO
-                          when (null $ options target) $ error ("No options meet " ++ show target)
-                          let opts = (options target)
-                          let (name, match, _) = pick r opts
-                          (history', code) <- supply (name:history) (arity (is match)
-                                      - arity (is target)) (Name name) match
-                          return $ (history', parenthesise code)
-      where parenthesise code@(Arg _ _) = Parens code
-            parenthesise code = code
-
-supply :: [String] -> Int -> Code -> Sig -> IO ([String], Code)
-supply history 0 code _ = return (history, code)
-supply history n code (Sig ps (F arg result))
-  = do (history', code') <- walk' history (Sig ps arg)
-       (history'', code'') <- supply history' (n-1) code' (Sig ps result)
-       return $ (history'', Arg (code) (code''))
--}
-
   {-
       weighted walk..
       1. randomly pick the first element of the walk
@@ -377,7 +351,15 @@ wWalk sig = do
               ngramFreqs <- lookupT
               -- recurse
               (history, Parens code) <- wWalk' [] 1 ngramFreqs sig
-              return (code)
+              check ngramFreqs history code
+  where
+    check :: [([String], Int)] -> [String] -> Code -> IO Code
+    check ngramFreqs history code | "sound" `elem` history = return code
+                                  | otherwise = do putStrLn "** [Trying again ..] **"
+                                                   (history', code') <- wWalk' history 1 ngramFreqs sig
+                                                   let code'' = Arg (Name "(#)") (Arg code code')
+                                                       history'' = history' ++ history
+                                                   check ngramFreqs history'' code''
 
 -- every 3 rev (every 4 (fast (rev (every 3 rev))
 
@@ -529,3 +511,4 @@ isFunction _ = False
 arity :: Type -> Int
 arity (F _ b) = (arity b) + 1
 arity _ = 0
+
