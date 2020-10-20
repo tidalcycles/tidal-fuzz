@@ -112,8 +112,8 @@ functions =
     --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1))), Any),
     ("sound", stringToOsc, Max 1),
     ("vowel", vowelStringToOsc, Max 1),
-    ("shape", floatToOsc, Any),
-    ("speed", floatToOsc, Any),
+    ("shape", floatToOsc, Max 1),
+    ("speed", floatToOsc, Max 1),
     -- ("delay", floatToOsc, Any),
     -- ("pan", floatToOsc, Any),
     ("every", Sig [WildCard] $ F (Pattern Int)
