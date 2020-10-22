@@ -82,7 +82,7 @@ data Code = Arg Code Code
 
 instance Show Code
    where -- show (Arg a (Parens b@(Arg _ _))) = show a ++ " (" ++ show b ++ ")"
-         -- show (Arg a (Parens b)) = show a ++ " $ " ++ show b
+         show (Arg a (Parens b)) = show a ++ " $ " ++ show b
          show (Arg a b) = show a ++ " " ++ show b
          -- show (Parens a@(Arg _ (Arg _ _))) = "(" ++ show a ++ ")"
          -- show (Arg a (Parens b) = show a ++ " (" ++ show b ++ ")"
@@ -91,6 +91,7 @@ instance Show Code
 
 data Occurances = Any
                 | Max Int
+  deriving Show
 
 functions :: [(String, Sig, Occurances)]
 functions =
@@ -98,7 +99,9 @@ functions =
     --("-", numOp, Any),
     --("/", floatOp, Any),
     --("*", numOp, Any),
-    ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc)), Any),
+    
+    -- Max should be = number of controls - 1
+    ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc)), Max 1),
     --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Any),
     ("chop", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Max 1),
     -- ("floor", Sig [] $ F Float Int, Any),
@@ -109,26 +112,26 @@ functions =
     --("<*>", Sig [WildCard, WildCard] $ F (Pattern $ F (Param 0) (Param 1)) (F (Pattern (Param 0)) (Pattern (Param 1))), Any),
     ("sound", stringToOsc, Max 1),
     ("vowel", vowelStringToOsc, Max 1),
-    -- ("shape", floatToOsc, Any),
-    -- ("speed", floatToOsc, Any),
+    ("shape", floatToOsc, Max 1),
+    ("speed", floatToOsc, Max 1),
     -- ("delay", floatToOsc, Any),
     -- ("pan", floatToOsc, Any),
     ("every", Sig [WildCard] $ F (Pattern Int)
               (F (F (Pattern $ Param 0) (Pattern $ Param 0))
                  (F (Pattern $ Param 0) (Pattern $ Param 0))
               )
-    , Any),
+    , Max 3),
     -- ("instantgabba", Sig [] $ Pattern Osc, Any),
     ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("slow", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     -- ("fast", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
+    -- ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
+    -- ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc)), Max 1),
     {-
     ("overlay", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("append", Sig [WildCard] $ F (Pattern $ Param 0) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("silence", Sig [] $ Pattern WildCard, Any),
-    ("iter", Sig [WildCard] $ F (Pattern Int) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("spin", Sig [] $ F (Int) (F (Pattern Osc) (Pattern $ Osc)), Any),
-    ("stut", Sig [] $ F (Pattern Int) $ F (Pattern Float) $ F (Pattern Float) $ (F (Pattern Osc) (Pattern Osc)), Any),
     ("<~", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("~>", Sig [WildCard] $ F (Pattern Float) (F (Pattern $ Param 0) (Pattern $ Param 0)), Any),
     ("chunk", Sig [WildCard] $ F (Pattern Int)
@@ -152,7 +155,7 @@ functions =
             (F (F (Pattern Osc) (Pattern Osc))
              (F (Pattern Osc) (Pattern Osc))
             )
-    , Any),
+    , Max 1),
      ("rev", Sig [WildCard] $ F (Pattern $ Param 0) (Pattern $ Param 0), Any),
      ("1", Sig [] $ Pattern Int, Any),
      ("2", Sig [] $ Pattern Int, Any),
@@ -232,9 +235,12 @@ fits (Sig pA (List a)) (Sig pB (List b)) = fits (Sig pA a) (Sig pB b)
 fits (Sig pA a) (Sig pB (Param b)) = fits (Sig pA a) (Sig pB (pB !! b))
 fits (Sig pA (Param a)) (Sig pB b) = fits (Sig pA (pA !! a)) (Sig pB b)
 
+-- TODO - could just do
+-- fits (Sig _ a) (Sig _ b)   = a == b ?
 fits (Sig _ Float) (Sig _ Float)   = True
 fits (Sig _ Int) (Sig _ Int)       = True
 fits (Sig _ String) (Sig _ String) = True
+fits (Sig _ VowelString) (Sig _ VowelString) = True
 fits (Sig _ OscStream) (Sig _ OscStream) = True
 fits (Sig _ Osc) (Sig _ Osc) = True
 
@@ -328,33 +334,7 @@ fitsOutput target t | fits t target = True
                     | otherwise = maybe False (fitsOutput target) (output t)
 
 
-debug = True
-
-{-
-walk:: Sig -> IO Code
-walk sig = do
-              (history, Parens code) <- walk' [] sig
-              return (code)
-
-
-walk' :: [String] -> Sig -> IO ([String], Code)
-walk' history target = do r <- randomIO
-                          when (null $ options target) $ error ("No options meet " ++ show target)
-                          let opts = (options target)
-                          let (name, match, _) = pick r opts
-                          (history', code) <- supply (name:history) (arity (is match)
-                                      - arity (is target)) (Name name) match
-                          return $ (history', parenthesise code)
-      where parenthesise code@(Arg _ _) = Parens code
-            parenthesise code = code
-
-supply :: [String] -> Int -> Code -> Sig -> IO ([String], Code)
-supply history 0 code _ = return (history, code)
-supply history n code (Sig ps (F arg result))
-  = do (history', code') <- walk' history (Sig ps arg)
-       (history'', code'') <- supply history' (n-1) code' (Sig ps result)
-       return $ (history'', Arg (code) (code''))
--}
+debug = False
 
   {-
       weighted walk..
@@ -370,8 +350,19 @@ wWalk sig = do
               -- get ngrams from corpus
               ngramFreqs <- lookupT
               -- recurse
-              (history, Parens code) <- wWalk' [] 1 ngramFreqs sig
-              return (code)
+              (history, code) <- wWalk' [] 1 ngramFreqs sig
+              code <- check ngramFreqs history code
+              return $ removeParens code
+  where
+    removeParens (Parens code) = code
+    removeParens code = code
+    check :: [([String], Int)] -> [String] -> Code -> IO Code
+    check ngramFreqs history code | "sound" `elem` history = return code
+                                  | otherwise = do when debug $ putStrLn "** [Trying again ..] **"
+                                                   (history', code') <- wWalk' history 1 ngramFreqs sig
+                                                   let code'' = Parens $ Arg (Name "(#)") (Arg code code')
+                                                       history'' = history' ++ history
+                                                   check ngramFreqs history'' code''
 
 -- every 3 rev (every 4 (fast (rev (every 3 rev))
 
@@ -523,3 +514,4 @@ isFunction _ = False
 arity :: Type -> Int
 arity (F _ b) = (arity b) + 1
 arity _ = 0
+
