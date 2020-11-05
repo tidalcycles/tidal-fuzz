@@ -410,12 +410,6 @@ filterOccurances history opts = map (\(a,b,_) -> (a,b)) $ filter f opts
         f (name, sig, Max mx) = mx > (length $ filter (== name) history)
 
 
--- useful as a way of stopping certain unwanted combinations?
--- filterEvery :: [String] -> [(String, Sig)]-> ([(String, Sig)])
-filterEvery [] opts = opts
-filterEvery history opts = nEvery1 (head history) opts
-  where nEvery1 st xs = if (st == "every") then ( ) --return all opts without 1
-                              else () -- return options
 
 wSupply :: [String] -> Int -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
 wSupply history _ ngramFreqs 0 code _ = return (history, code)
