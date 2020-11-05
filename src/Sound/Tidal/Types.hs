@@ -7,6 +7,8 @@ import Control.Monad
 import Sound.Tidal.Ngrams
 import GHC.Float
 
+import System.Environment
+
 
 data Type =
   F Type Type
@@ -99,7 +101,7 @@ functions =
     --("-", numOp, Any),
     --("/", floatOp, Any),
     --("*", numOp, Any),
-    
+
     -- Max should be = number of controls - 1
     ("(#)", Sig [] $ F (Pattern Osc) (F (Pattern Osc) (Pattern Osc)), Max 1),
     --("striate", Sig [] $ F (Pattern Int) (F (Pattern Osc) (Pattern Osc)), Any),
@@ -345,6 +347,11 @@ debug = False
       5. picking something at random not in the ngram <- how likely.
   -}
 
+-- getEnvVars :: IO
+getEnvVars = do
+              args <- getArgs
+              return (args)
+
 wWalk :: Sig -> IO Code
 wWalk sig = do
               -- get ngrams from corpus
@@ -378,7 +385,8 @@ wWalk' history depth ngramFreqs target = do
                           -- Weight the possibilities based on ngrams
                           wOpts <- weightedOpts history opts ngramFreqs
                           -- constrain
-                          let wOpts' = rollOff depth wOpts
+                          rollOff <- rollOff' depth wOpts
+                          let wOpts' = rollOff -- depth wOpts
                               -- Pick one
                               (name, match, prob) = weightedPick r wOpts'
                           when debug $ putStrLn $ show (name, match, prob)
@@ -401,23 +409,44 @@ filterOccurances history opts = map (\(a,b,_) -> (a,b)) $ filter f opts
   where f (name, sig, Any) = True
         f (name, sig, Max mx) = mx > (length $ filter (== name) history)
 
+
+-- useful as a way of stopping certain unwanted combinations?
+-- filterEvery :: [String] -> [(String, Sig)]-> ([(String, Sig)])
+filterEvery [] opts = opts
+filterEvery history opts = nEvery1 (head history) opts
+  where nEvery1 st xs = if (st == "every") then ( ) --return all opts without 1
+                              else () -- return options
+
 wSupply :: [String] -> Int -> [([String], Int)] -> Int -> Code -> Sig -> IO ([String], Code)
 wSupply history _ ngramFreqs 0 code _ = return (history, code)
 wSupply history depth ngramFreqs n code (Sig ps (F arg result))
   = do
        -- when debug $ putStrLn "wSupply'"
-       -- 
+       --
        (history', code') <- wWalk' history (depth + 1) ngramFreqs (Sig ps arg)
        (history'', code'') <- wSupply history' depth ngramFreqs (n-1) code' (Sig ps result)
        return $ (history'', Arg (code) (code''))
 
-rollOff :: Int -> [(String, Sig, Double)] -> [(String, Sig, Double)]
-rollOff depth wOpts = map f wOpts
-  where f (name, sig, weight) = (name, sig, mungeWeight (arity $ is sig) weight)
-        mungeWeight 0 w = w
-        -- TODO - adjust this curve..
-        mungeWeight a w = w * (1/((fromIntegral a) * (fromIntegral depth)))
-        
+-- rollOff :: Int -> [(String, Sig, Double)] -> [(String, Sig, Double)]
+-- rollOff depth wOpts = map f wOpts
+--   where f (name, sig, weight) = (name, sig, mungeWeight (arity $ is sig) weight)
+--         mungeWeight 0 w = w
+--         -- TODO - adjust this curve..
+--         mungeWeight a w = w * (1/((fromIntegral a) * (fromIntegral depth)))
+
+rollOff' :: Int -> [(String, Sig, Double)] -> IO ([(String, Sig, Double)])
+rollOff' depth wOpts = do
+                          vars <- getEnvVars
+                          let uA = read (vars!!0) -- user defined weight munging
+                          let out = map f wOpts
+                                where f (name, sig, weight) = (name, sig, mungeWeight (arity $ is sig) weight)
+                                      mungeWeight 0 w = w
+                                      -- TODO - adjust this curve..
+                                      -- mungeWeight a w = w * (1/((fromIntegral a) * (fromIntegral depth)))
+                                      mungeWeight a w = w * (uA/ sqrt (fromIntegral (a+depth) ))
+                          return (out)
+
+
 weightedOpts :: [String] -> [(String, Sig)] -> [([String], Int)] -> IO [(String, Sig, Double )]
 weightedOpts history opts ngramFreqs = do
                               -- adherence <- getLine
@@ -514,4 +543,3 @@ isFunction _ = False
 arity :: Type -> Int
 arity (F _ b) = (arity b) + 1
 arity _ = 0
-
